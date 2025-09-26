@@ -357,7 +357,7 @@
             existingImages.forEach(image => {
                 html += `
                     <div class="image-preview">
-                        <img src="data:${image.mimeType};base64,${image.base64}" alt="${image.filename}">
+                        <img src="${image.url}" alt="${image.filename}">
                         <button type="button" class="remove-image" onclick="openDeleteImageModal('${image._id}')">
                             <i class="fas fa-trash"></i>
                         </button>
