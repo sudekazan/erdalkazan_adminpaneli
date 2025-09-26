@@ -34,12 +34,25 @@ router.get('/projects/:id', async (req, res) => {
 // Create a new project (protected route)
 router.post('/projects', authenticateToken, isAdmin, upload.array('images', 10), async (req, res) => {
   try {
-    const { title, subtitle, description } = req.body;
-    
+    const { title, subtitle, description, technologies } = req.body;
+
+    // Handle technologies field
+    let techArray = [];
+    if (technologies) {
+      try {
+        techArray = typeof technologies === 'string' ? JSON.parse(technologies) : technologies;
+        techArray = Array.isArray(techArray) ? techArray : [];
+      } catch (e) {
+        // If parsing fails, treat as comma-separated string
+        techArray = technologies.split(',').map(tech => tech.trim()).filter(tech => tech);
+      }
+    }
+
     const project = new Project({
       title,
       subtitle,
       description,
+      technologies: techArray,
       images: req.files.map(f => ({ url: f.path, filename: f.filename }))
     });
 
@@ -53,7 +66,7 @@ router.post('/projects', authenticateToken, isAdmin, upload.array('images', 10),
 // Update a project (protected route)
 router.put('/projects/:id', authenticateToken, isAdmin, upload.array('images', 10), async (req, res) => {
   try {
-    const { title, subtitle, description } = req.body;
+    const { title, subtitle, description, technologies } = req.body;
     const project = await Project.findById(req.params.id);
 
     if (!project) {
@@ -63,6 +76,19 @@ router.put('/projects/:id', authenticateToken, isAdmin, upload.array('images', 1
     project.title = title;
     project.subtitle = subtitle;
     project.description = description;
+
+    // Handle technologies field
+    if (technologies) {
+      try {
+        const techArray = typeof technologies === 'string' ? JSON.parse(technologies) : technologies;
+        project.technologies = Array.isArray(techArray) ? techArray : [];
+      } catch (e) {
+        // If parsing fails, treat as comma-separated string
+        project.technologies = technologies.split(',').map(tech => tech.trim()).filter(tech => tech);
+      }
+    } else {
+      project.technologies = [];
+    }
 
     if (req.files && req.files.length > 0) {
       const newImages = req.files.map(f => ({ url: f.path, filename: f.filename }));
