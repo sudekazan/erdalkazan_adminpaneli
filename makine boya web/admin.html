@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - Proje Yönetimi</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://unpkg.com/cropperjs@1.6.2/dist/cropper.min.css">
+    <style>
+        .admin-container { max-width: 1100px; margin: 110px auto 60px; background: #fff; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); padding: 24px; }
+        .admin-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+        .admin-title { font-size: 1.6rem; font-weight: 700; color: #222; }
+        .admin-actions { display: flex; gap: 10px; }
+        .btn { background:#007bff; color:#fff; border:none; padding:10px 14px; border-radius:8px; cursor:pointer; }
+        .btn.secondary { background:#6c757d; }
+        .btn.danger { background:#dc3545; }
+        .input, textarea { width:100%; padding:10px 12px; border:1px solid #e5e7eb; border-radius:8px; outline:none; }
+        .grid { display:grid; grid-template-columns: 1fr 1fr; gap:14px; }
+        .card { border:1px solid #e5e7eb; border-radius:10px; padding:14px; background:#fafafa; }
+        .list { display:grid; gap:12px; }
+        .images-row { display:flex; gap:8px; flex-wrap:wrap; }
+        .image-chip { display:flex; align-items:center; gap:6px; background:#eef2ff; color:#1d4ed8; border-radius:9999px; padding:6px 10px; font-size:.85rem; }
+        .image-chip button { background:transparent; color:#1d4ed8; border:none; cursor:pointer; }
+        .small { font-size:.9rem; color:#666; }
+        .muted { color:#6b7280; }
+        /* Seçilen görseller küçük önizleme */
+        .thumb { position:relative; width:110px; height:78px; border-radius:10px; overflow:hidden; background:#eceff1; border:1px solid #e5e7eb; }
+        .thumb img { width:100%; height:100%; object-fit:cover; display:block; }
+        .thumb button { position:absolute; top:4px; right:4px; width:22px; height:22px; border-radius:9999px; border:none; background:rgba(0,0,0,0.6); color:#fff; cursor:pointer; line-height:22px; text-align:center; }
+        /* Modal */
+        .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.5); display:flex; align-items:center; justify-content:center; z-index: 2000; }
+        .modal-content { width: min(90vw, 900px); background:#fff; border-radius:12px; box-shadow: 0 10px 30px rgba(0,0,0,0.25); overflow:hidden; display:flex; flex-direction:column; }
+        .modal-header { padding:12px 16px; font-weight:600; border-bottom:1px solid #eee; }
+        .modal-body { padding:10px; max-height:70vh; overflow:auto; }
+        .modal-actions { display:flex; gap:10px; justify-content:flex-end; padding:12px 16px; border-top:1px solid #eee; }
+        @media (max-width: 768px) { .grid { grid-template-columns: 1fr; } .admin-container { margin-top: 90px; } }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="logo">Makina Boya - Admin</div>
+            <ul class="nav-links">
+                <li><a href="index.html">Siteye Dön</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="admin-container">
+        <div class="admin-header">
+            <div>
+                <div class="admin-title">Projeleri Yönet</div>
+                <div class="small muted">Buradan proje ekleyebilir, düzenleyebilir ve silebilirsiniz. Değişiklikler tarayıcıya kaydedilir.</div>
+            </div>
+            <div class="admin-actions">
+                <button id="addProjectBtn" class="btn">Yeni Proje Ekle</button>
+                <button id="resetProjectsBtn" class="btn secondary">Varsayılanı Yükle</button>
+            </div>
+        </div>
+
+        <div id="projectForm" class="card" style="display:none;">
+            <div class="grid">
+                <div>
+                    <label>Proje Başlığı</label>
+                    <input id="titleInput" class="input" placeholder="Örn: Tambur Boyama ve Epoksi" />
+                </div>
+                <div>
+                    <label>Görsel Ekle</label>
+                    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                        <button id="pickImageBtn" class="btn" type="button" style="white-space:nowrap;">Cihazdan Seç</button>
+                        <input id="fileInput" type="file" accept="image/*" multiple style="display:none;" />
+                    </div>
+                </div>
+                <div style="grid-column:1/-1;">
+                    <label>Açıklama</label>
+                    <textarea id="descInput" class="input" rows="4" placeholder="Yapılan işlemler... Her satır yeni satır olarak görünür."></textarea>
+                </div>
+            </div>
+            <div class="images-row" id="imagesChips"></div>
+            <div style="display:flex; gap:10px; margin-top:12px;">
+                <button id="saveProjectBtn" class="btn">Kaydet</button>
+                <button id="cancelProjectBtn" class="btn secondary">İptal</button>
+            </div>
+        </div>
+
+        <div class="list" id="projectsList"></div>
+    </div>
+
+    <!-- Kırpma Modali -->
+    <div id="cropModal" class="modal-overlay" style="display:none;">
+        <div class="modal-content">
+            <div class="modal-header">Görseli Kırp</div>
+            <div class="modal-body">
+                <img id="cropImage" alt="Crop Image" style="max-width:100%; display:block;">
+            </div>
+            <div class="modal-actions">
+                <div style="margin-right:auto; display:flex; align-items:center; gap:8px;">
+                    <label for="aspectSelect" class="small muted">Oran</label>
+                    <select id="aspectSelect" class="input" style="width:auto; padding:6px 8px;">
+                        <option value="1:1">1:1 (Kare)</option>
+                        <option value="4:3">4:3</option>
+                        <option value="3:2">3:2</option>
+                        <option value="16:9" selected>16:9</option>
+                    </select>
+                </div>
+                <button id="cropCancelBtn" class="btn secondary" type="button">İptal</button>
+                <button id="cropSaveBtn" class="btn" type="button">Kaydet</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/cropperjs@1.6.2/dist/cropper.min.js"></script>
+    <script>
+        (function(){
+            const defaultProjects = [
+                {
+                    title: 'Devre Tamburu Boyama ve Epoksi Uygulama',
+                    description: 'Bu projede yapılan işlemler ve detaylar:\n- Eski boyanın tamamen sökülmesi ve yüzeyin temizlenmesi\n- Astar uygulaması ile yüzeyin hazırlanması\n- Epoksi kaplama ile sağlamlık ve koruma sağlanması\n- Dyo marka boya ile son kat uygulaması\n- Tamburun çevresinin kumlanması ile düzgün yüzey elde edilmesi\n\nSonuç olarak tambur hem estetik olarak yenilendi hem de uzun süre kullanılabilecek dayanıklı bir hale getirildi.',
+                    images: ['turuncu/resim1.jpeg','turuncu/resim2.jpeg','turuncu/resim3.jpeg','turuncu/resim4.jpeg','turuncu/resim5.jpeg','turuncu/resim6.jpeg','turuncu/resim7.jpeg','turuncu/resim8.jpeg']
+                },
+                {
+                    title: 'Devre Tamburu Boyama ve Epoksi Kaplama',
+                    description: 'Bu projede yapılan işlemler ve detaylar:\n- Boyasız gelen tambura doğrudan astar uygulaması yapılması\n- Epoksi kaplama ile yüzeyin sağlamlaştırılması ve korunması\n- Dyo marka boya ile son kat uygulaması\n\nSonuç olarak tambur, kullanıma hazır ve uzun ömürlü hale getirildi. Hem koruyucu özelliği yüksek hem de temiz ve düzgün bir görünüm kazandı.',
+                    images: ['gri/resim7.jpeg','gri/resim1.jpeg','gri/resim2.jpeg','gri/resim3.jpeg','gri/resim4.jpeg','gri/resim5.jpeg','gri/resim6.jpeg']
+                }
+            ];
+
+            const els = {
+                list: document.getElementById('projectsList'),
+                addBtn: document.getElementById('addProjectBtn'),
+                resetBtn: document.getElementById('resetProjectsBtn'),
+                form: document.getElementById('projectForm'),
+                title: document.getElementById('titleInput'),
+                desc: document.getElementById('descInput'),
+                pickImageBtn: document.getElementById('pickImageBtn'),
+                fileInput: document.getElementById('fileInput'),
+                saveBtn: document.getElementById('saveProjectBtn'),
+                cancelBtn: document.getElementById('cancelProjectBtn'),
+                imageChips: document.getElementById('imagesChips'),
+                cropModal: document.getElementById('cropModal'),
+                cropImage: document.getElementById('cropImage'),
+                cropSaveBtn: document.getElementById('cropSaveBtn'),
+                cropCancelBtn: document.getElementById('cropCancelBtn'),
+                aspectSelect: document.getElementById('aspectSelect')
+            };
+
+            let projects = loadProjects();
+            let editingIndex = -1;
+            let draftImages = [];
+            let cropper = null;
+            let selectedFiles = [];
+            let currentFileIndex = 0;
+            let currentAspectRatio = ratioFromString(els.aspectSelect ? els.aspectSelect.value : '16:9');
+            if (els.aspectSelect) {
+                els.aspectSelect.addEventListener('change', () => {
+                    currentAspectRatio = ratioFromString(els.aspectSelect.value);
+                    if (cropper && currentAspectRatio) {
+                        cropper.setAspectRatio(currentAspectRatio);
+                    }
+                });
+            }
+
+            renderList();
+
+            els.addBtn.addEventListener('click', () => {
+                openForm();
+            });
+
+            els.resetBtn.addEventListener('click', () => {
+                if (confirm('Varsayılan projeler yüklenecek ve mevcut verilerinizin üzerine yazılacak. Emin misiniz?')) {
+                    projects = [...defaultProjects];
+                    persist();
+                    renderList();
+                }
+            });
+
+            // URL ile ekleme kaldırıldı
+
+            // Cihazdan görsel seçme
+            els.pickImageBtn.addEventListener('click', () => {
+                els.fileInput.click();
+            });
+
+            els.fileInput.addEventListener('change', (e) => {
+                selectedFiles = Array.from(e.target.files || []);
+                currentFileIndex = 0;
+                if (selectedFiles.length) {
+                    openCropperForFile(selectedFiles[currentFileIndex]);
+                }
+                // Aynı dosyayı tekrar seçebilmeyi sağla
+                e.target.value = '';
+            });
+
+            els.cropSaveBtn.addEventListener('click', () => {
+                if (!cropper) return;
+                const canvas = cropper.getCroppedCanvas({
+                    maxWidth: 1600,
+                    maxHeight: 1600,
+                    imageSmoothingQuality: 'high'
+                });
+                if (canvas) {
+                    const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+                    draftImages.push(dataUrl);
+                    renderImageChips();
+                }
+                proceedNextOrClose();
+            });
+
+            els.cropCancelBtn.addEventListener('click', () => {
+                proceedNextOrClose();
+            });
+
+            els.saveBtn.addEventListener('click', () => {
+                const title = els.title.value.trim();
+                const description = els.desc.value.trim();
+                if (!title) { alert('Başlık zorunludur'); return; }
+                const record = { title, description, images: draftImages.slice() };
+                if (editingIndex === -1) {
+                    projects.push(record);
+                } else {
+                    projects[editingIndex] = record;
+                }
+                persist();
+                closeForm();
+                renderList();
+            });
+
+            els.cancelBtn.addEventListener('click', () => {
+                closeForm();
+            });
+
+            // Event delegation for project actions
+            els.list.addEventListener('click', (e) => {
+            const target = e.target.closest('[data-action]');
+            if (!target) return;
+
+            const action = target.getAttribute('data-action');
+            const index = Number(target.getAttribute('data-index'));
+
+            if (action === 'edit') {
+                e.preventDefault();
+                e.stopPropagation();
+                startEdit(index);
+            } else if (action === 'delete') {
+                e.preventDefault();
+                e.stopPropagation();
+
+                if (confirm('Bu projeyi silmek istediğinize emin misiniz?')) {
+                    projects.splice(index, 1);
+                    persist();
+                    renderList();
+                }
+            }
+        });
+
+            
+            function renderList() {
+                els.list.innerHTML = projects.map((p, i) => cardTemplate(p, i)).join('');
+            }
+
+            function cardTemplate(p, i) {
+                const count = (p.images || []).length;
+                const thumb = count ? p.images[0] : '';
+                return `
+                <div class="card">
+                    <div style="display:flex; gap:14px; align-items:flex-start;">
+                        <div style="width:160px; height:110px; background:#eceff1; border-radius:8px; overflow:hidden; flex-shrink:0; display:flex; align-items:center; justify-content:center;">
+                            ${thumb ? `<img src="${thumb}" alt="Önizleme" style="width:100%; height:100%; object-fit:cover;"/>` : '<span class="muted">Görsel yok</span>'}
+                        </div>
+                        <div style="flex:1; display:flex; flex-direction:column; gap:6px;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
+                                <div style="font-weight:600; font-size:1.05rem; color:#111;">${escapeHtml(p.title)}</div>
+                                <div style="display:flex; gap:8px;">
+                                    <button type="button" data-action="edit" data-index="${i}" class="btn secondary">Düzenle</button>
+                                    <button type="button" data-action="delete" data-index="${i}" class="btn danger">Sil</button>
+                                </div>
+                            </div>
+                            <div class="small muted">${count} görsel</div>
+                            <div class="small" style="white-space:pre-wrap;">${escapeHtml(p.description || '')}</div>
+                        </div>
+                    </div>
+                </div>`;
+            }
+
+            function startEdit(index) {
+                editingIndex = index;
+                const p = projects[index];
+                els.title.value = p.title || '';
+                els.desc.value = p.description || '';
+                draftImages = (p.images || []).slice();
+                renderImageChips();
+                openForm();
+            }
+
+            function openForm() {
+                els.form.style.display = '';
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+
+            function closeForm() {
+                els.form.style.display = 'none';
+                editingIndex = -1;
+                els.title.value = '';
+                els.desc.value = '';
+                draftImages = [];
+                renderImageChips();
+            }
+
+            function renderImageChips() {
+                els.imageChips.innerHTML = draftImages.map((src, i) => `
+                    <div class="thumb">
+                        <img src="${src}" alt="Seçilen görsel ${i+1}">
+                        <button title="Kaldır" data-i="${i}">×</button>
+                    </div>
+                `).join('');
+                els.imageChips.querySelectorAll('.thumb button').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        const i = Number(btn.getAttribute('data-i'));
+                        draftImages.splice(i,1);
+                        renderImageChips();
+                    });
+                });
+            }
+
+            function openCropperForFile(file) {
+                const reader = new FileReader();
+                reader.onload = () => {
+                    els.cropImage.src = reader.result;
+                    showCropModal();
+                    if (cropper) {
+                        cropper.destroy();
+                    }
+                    cropper = new Cropper(els.cropImage, {
+                        viewMode: 1,
+                        dragMode: 'move',
+                        autoCropArea: 1,
+                        responsive: true,
+                        background: false,
+                        movable: true,
+                        zoomable: true,
+                        scalable: true,
+                        rotatable: false,
+                        aspectRatio: currentAspectRatio || NaN
+                    });
+                };
+                reader.readAsDataURL(file);
+            }
+
+            function showCropModal() {
+                els.cropModal.style.display = '';
+            }
+
+            function hideCropModal() {
+                els.cropModal.style.display = 'none';
+                if (cropper) {
+                    cropper.destroy();
+                    cropper = null;
+                }
+            }
+
+            function proceedNextOrClose() {
+                currentFileIndex++;
+                if (currentFileIndex < (selectedFiles.length || 0)) {
+                    openCropperForFile(selectedFiles[currentFileIndex]);
+                } else {
+                    hideCropModal();
+                    selectedFiles = [];
+                    currentFileIndex = 0;
+                }
+            }
+
+            function persist() {
+                localStorage.setItem('projectsData', JSON.stringify(projects));
+            }
+
+            function loadProjects() {
+                try {
+                    const raw = localStorage.getItem('projectsData');
+                    if (raw) return JSON.parse(raw);
+                } catch {}
+                return [...defaultProjects];
+            }
+
+            function escapeHtml(str) {
+                return String(str).replace(/[&<>"]+/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[s]));
+            }
+
+            function isDataUrl(s) {
+                return typeof s === 'string' && s.startsWith('data:image/');
+            }
+
+            function ratioFromString(val) {
+                try {
+                    const [w, h] = String(val).split(':').map(Number);
+                    if (!isFinite(w) || !isFinite(h) || h === 0) return NaN;
+                    return w / h;
+                } catch { return NaN; }
+            }
+        })();
+    </script>
+</body>
+</html>
+
+
