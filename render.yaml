@@ -5,7 +5,6 @@ services:
     plan: free
     buildCommand: "npm install"
     startCommand: "node server.js"
-    previewsEnabled: true # Pull Request önizlemelerini etkinleştirir
     envVars:
       - key: NODE_ENV
         value: production
