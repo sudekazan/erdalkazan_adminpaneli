@@ -113,16 +113,8 @@
                     }
     
                     projectsContainer.innerHTML = projects.map((p, index) => {
-                        // Base64 verisinden görsel HTML'i oluşturuluyor
-                        const imagesHtml = (p.images || [])
-                            .map(imgObj => `
-                                <img 
-                                    src="data:${imgObj.mimeType};base64,${imgObj.base64}" 
-                                    alt="${p.title} Görsel" 
-                                    class="slider-image"
-                                >
-                            `)
-                            .join('');
+                        // Cloudinary URL'sinden görsel HTML'i oluşturuluyor
+                        const imagesHtml = (p.images || []).map(img => `<img src="${img.url}" alt="${p.title} Görsel" class="slider-image">`).join('');
                         
                         // Slider butonlarını sadece birden fazla görsel varsa göster
                         const hasMultipleImages = p.images && p.images.length > 1;

@@ -19,9 +19,8 @@ const projectSchema = new mongoose.Schema({
     trim: true
   }],
   images: [{
-    filename: String,
-    mimeType: String,
-    base64: String
+    url: String,
+    filename: String
   }],
   createdAt: {
     type: Date,
