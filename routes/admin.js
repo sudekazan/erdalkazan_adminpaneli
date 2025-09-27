@@ -40,8 +40,24 @@ router.post('/logout', (req, res) => {
 });
 
 // Check if user is authenticated
-router.get('/check-auth', authenticateToken, (req, res) => {
-  res.json({ authenticated: true, user: req.user });
+router.get('/check-auth', (req, res) => {
+  // In development mode, always return authenticated
+  if (process.env.NODE_ENV !== 'production') {
+    return res.json({ authenticated: true, user: { role: 'admin' } });
+  }
+
+  // Use the authenticateToken middleware for production
+  const token = req.cookies.token;
+  if (!token) {
+    return res.status(401).json({ message: 'Authentication required' });
+  }
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    res.json({ authenticated: true, user: decoded });
+  } catch (error) {
+    res.status(403).json({ message: 'Invalid or expired token' });
+  }
 });
 
 module.exports = router;

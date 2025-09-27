@@ -106,19 +106,26 @@
                     credentials: 'same-origin'
                 });
                 
+                console.log('Auth response status:', authResponse.status);
                 if (!authResponse.ok) {
+                    console.log('Authentication failed, redirecting to login');
                     window.location.href = '/admin/login.html';
                     return;
                 }
+                
+                console.log('Authentication successful');
                 
                 // Get project ID from URL
                 const urlParams = new URLSearchParams(window.location.search);
                 projectId = urlParams.get('id');
                 
                 if (!projectId) {
+                    alert('Proje ID bulunamadı. Admin paneline yönlendiriliyorsunuz.');
                     window.location.href = '/admin';
                     return;
                 }
+                
+                console.log('Loading project with ID:', projectId);
                 
                 // Set up logout button
                 document.getElementById('logoutBtn').addEventListener('click', async (e) => {
@@ -148,21 +155,26 @@
         // Load project data
         async function loadProject(id) {
             try {
+                console.log('Fetching project data for ID:', id);
                 const response = await fetch(`/api/projects/${id}`, {
                     credentials: 'same-origin'
                 });
                 
                 if (!response.ok) {
-                    throw new Error('Proje yüklenirken bir hata oluştu');
+                    if (response.status === 404) {
+                        throw new Error('Proje bulunamadı');
+                    }
+                    throw new Error(`Proje yüklenirken hata oluştu: ${response.status}`);
                 }
                 
                 const project = await response.json();
+                console.log('Project loaded successfully:', project);
                 
                 // Populate form fields
                 document.getElementById('title').value = project.title || '';
                 document.getElementById('subtitle').value = project.subtitle || '';
                 document.getElementById('description').value = project.description || '';
-                document.getElementById('technologies').value = project.technologies ? project.technologies.join(', ') : '';
+                document.getElementById('technologies').value = Array.isArray(project.technologies) ? project.technologies.join(', ') : '';
                 
                 // Store existing images
                 existingImages = project.images || [];
@@ -173,6 +185,7 @@
             } catch (error) {
                 console.error('Error loading project:', error);
                 showError('Proje yüklenirken bir hata oluştu. Lütfen tekrar deneyin.');
+                // Don't redirect on error, just show the error message
             }
         }
         
