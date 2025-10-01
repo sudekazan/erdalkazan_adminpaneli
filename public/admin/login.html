@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Giriş - Erdal Kazan</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="/admin/css/admin.css">
+</head>
+<body class="admin-login">
+    <div class="login-container">
+        <div class="login-box">
+            <div class="logo">
+                <img src="/logo/Erdal%20K..png" alt="Erdal Kazan Logo">
+            </div>
+            <h1>Yönetici Paneli</h1>
+            <form id="loginForm">
+                <div class="form-group">
+                    <label for="password">Şifre</label>
+                    <input type="password" id="password" name="password" required>
+                </div>
+                <button type="submit" class="btn btn-primary">Giriş Yap</button>
+            </form>
+            <div id="error" class="error-message"></div>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const password = document.getElementById('password').value;
+            const errorElement = document.getElementById('error');
+            
+            try {
+                const response = await fetch('/admin/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ password }),
+                    credentials: 'same-origin'
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    window.location.href = '/admin';
+                } else {
+                    errorElement.textContent = data.message || 'Giriş başarısız';
+                }
+            } catch (error) {
+                console.error('Login error:', error);
+                errorElement.textContent = 'Bir hata oluştu. Lütfen tekrar deneyin.';
+            }
+        });
+    </script>
+</body>
+</html>

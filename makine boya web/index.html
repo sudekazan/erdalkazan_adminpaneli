@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Makina Boya Uzmanı</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <!-- Navbar -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="logo">Makina Boya</div>
+            <ul class="nav-links">
+                <li><a href="#anasayfa">Ana Sayfa</a></li>
+                <li><a href="#hakkimda">Hakkımda</a></li>
+                <li><a href="#projeler">Projeler</a></li>
+                <li><a href="#iletisim">İletişim</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Ana Kart Bölümü -->
+    <div id="hakkimda" class="card-container">
+        <div class="profile-info">
+            <img src="logo/Erdal K..png" alt="Profil Resmi" class="profile-img">
+            <h2 class="profile-name">Erdal Kazan</h2>
+            <div class="blue-line"></div>
+            <p class="profile-title">Makina Boya Uzmanı</p>
+            <div class="social-icons">
+                <a href="tel:+905372568244"><i class="fas fa-phone"></i></a>
+                <a href="mailto:erdalkazan1616@gmail.com"><i class="fas fa-envelope"></i></a>
+                <a href="https://instagram.com/kazan_erdal1616" target="_blank"><i class="fab fa-instagram"></i></a>
+                <a href="https://wa.me/905372568244" target="_blank"><i class="fab fa-whatsapp"></i></a>
+            </div>
+        </div>
+        <div class="about-info">
+            <h1>Hakkımda</h1>
+            <p class="sub-title">20+ Yıllık Tecrübe</p>
+            <p class="description">
+                Uzun yıllardır sanayi tipi makine ve ekipman boyama alanında hizmet veriyorum. Tecrübem ve işime olan özen sayesinde her projede kaliteli ve dayanıklı sonuçlar elde ediyorum.
+
+                Epoksi kaplama, astar uygulaması ve son kat boya işlemlerini dikkatle uyguluyor; yüzey hazırlığından teslimata kadar her aşamada titiz çalışıyorum.
+
+                Müşteri memnuniyetini ön planda tutarak, işimi zamanında ve temiz bir şekilde teslim etmeye özen gösteriyorum.
+            </p>
+        </div>
+    </div>
+
+    <!-- Başa Dön Butonu -->
+    <button id="backToTop" class="back-to-top">
+        <i class="fas fa-arrow-up"></i>
+    </button>
+
+    <!-- Projeler Bölümü -->
+    <section id="projeler" class="projects-section">
+        <h2>Projelerim</h2>
+        <div id="projects-container" class="projects-container">
+            </div>
+    </section>
+
+    <!-- İletişim Bölümü -->
+    <section id="iletisim" class="contact-section">
+        <h2>İletişim</h2>
+        <div class="contact-info">
+            <div class="contact-item">
+                <i class="fas fa-phone"></i>
+                <p>+90 537 256 82 44</p>
+            </div>
+            <div class="contact-item">
+                <i class="fas fa-envelope"></i>
+                <p>erdalkazan1616@gmail.com</p>
+            </div>
+            <div class="contact-item">
+                <i class="fab fa-instagram"></i>
+                <p>@kazan_erdal1616</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- WhatsApp Baloncuğu -->
+    <a href="https://wa.me/905372568244" class="whatsapp-bubble" target="_blank">
+        <i class="fab fa-whatsapp"></i>
+        <div class="whatsapp-tooltip">
+            Merhaba! Benimle iletişime geçmek için tıklayın.
+        </div>
+    </a>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', async function() {
+            // Fonksiyon 1: Projeleri çeken, HTML'i oluşturan ve Slider'ları başlatan ana fonksiyon
+            async function fetchAndDisplayProjects() {
+                // projects-container div'ini ID ile seçiyoruz (index.html'e ID eklediğiniz için)
+                const projectsContainer = document.getElementById('projects-container');
+                
+                if (!projectsContainer) return;
+                projectsContainer.innerHTML = '<p style="text-align: center;">Projeler yükleniyor...</p>';
+    
+                try {
+                    // API rotasına istek atılıyor
+                    const response = await fetch('/api/projects');
+                    if (!response.ok) {
+                        throw new Error(`API hatası! Kod: ${response.status}`);
+                    }
+                    
+                    // Proje dizisini alıyoruz
+                    const projects = await response.json(); 
+    
+                    if (projects.length === 0) {
+                        projectsContainer.innerHTML = '<p style="text-align: center;">Henüz yayınlanmış proje bulunmamaktadır.</p>';
+                        return;
+                    }
+    
+                    projectsContainer.innerHTML = projects.map((p, index) => {
+                        // Cloudinary URL'sinden görsel HTML'i oluşturuluyor
+                        const imagesHtml = (p.images || []).map(img => `<img src="${img.url}" alt="${p.title} Görsel" class="slider-image">`).join('');
+                        
+                        // Slider butonlarını sadece birden fazla görsel varsa göster
+                        const hasMultipleImages = p.images && p.images.length > 1;
+    
+                        return `
+                            <div class="project-card">
+                                <div class="project-slider">
+                                    <div class="slider-container" id="slider-container-${index}">
+                                        ${imagesHtml}
+                                    </div>
+                                    ${hasMultipleImages ? `
+                                        <button class="slider-button prev" data-target="${index}">❮</button>
+                                        <button class="slider-button next" data-target="${index}">❯</button>
+                                    ` : ''}
+                                </div>
+                                <div class="project-info">
+                                    <h3>${p.title || ''}</h3>
+                                    <p class="project-description">${(p.description || '').replace(/\n/g, '<br>')}</p>
+                                </div>
+                            </div>`;
+                    }).join('');
+    
+                    // Yeni oluşturulan HTML elementleri için slider mantığını başlat
+                    initSliders();
+    
+                } catch (e) {
+                    console.error('Projeler yüklenirken bir hata oluştu:', e);
+                    projectsContainer.innerHTML = '<p style="color: red; text-align: center;">Projeler yüklenemedi.</p>';
+                }
+            }
+            
+            // Fonksiyon 2: Slider mantığını kuran fonksiyon (Artık ana fonksiyon tarafından çağrılıyor)
+            function initSliders() {
+                // DİKKAT: Dinamik olarak yüklenen sliderları tekrar seçiyoruz.
+                const sliders = document.querySelectorAll('.slider-container');
+                
+                sliders.forEach(slider => {
+                    const images = slider.querySelectorAll('.slider-image');
+                    let currentIndex = 0;
+                    
+                    // slider-container ID'sinden benzersiz index'i al
+                    const targetIndex = slider.id.split('-').pop();
+    
+                    // data-target attribute'ü ile doğru butonları seç
+                    const prevButton = document.querySelector(`.slider-button.prev[data-target="${targetIndex}"]`);
+                    const nextButton = document.querySelector(`.slider-button.next[data-target="${targetIndex}"]`);
+                    
+                    if (images.length > 0) {
+                        images[0].classList.add('active');
+                    }
+    
+                    function showImage(index) {
+                        images.forEach(img => img.classList.remove('active'));
+                        if (images[index]) {
+                            images[index].classList.add('active');
+                        }
+                    }
+    
+                    if (prevButton && nextButton && images.length > 0) {
+                        prevButton.addEventListener('click', () => {
+                            currentIndex = (currentIndex - 1 + images.length) % images.length;
+                            showImage(currentIndex);
+                        });
+    
+                        nextButton.addEventListener('click', () => {
+                            currentIndex = (currentIndex + 1) % images.length;
+                            showImage(currentIndex);
+                        });
+                    }
+                });
+            }
+            
+            // ANA İŞLEMİ BAŞLAT
+            fetchAndDisplayProjects();
+    
+            // ----------------------------------------------------
+            // Başa dön butonu ve WhatsApp baloncuğu kodları (değişmedi)
+            // ----------------------------------------------------
+            const backToTopButton = document.getElementById('backToTop');
+    
+            window.addEventListener('scroll', () => {
+                if (window.pageYOffset > 300) {
+                    backToTopButton.classList.add('show');
+                } else {
+                    backToTopButton.classList.remove('show');
+                }
+            });
+    
+            backToTopButton.addEventListener('click', () => {
+                window.scrollTo({
+                    top: 0,
+                    behavior: 'smooth'
+                });
+            });
+    
+            const whatsappBubble = document.querySelector('.whatsapp-bubble');
+            const tooltip = document.querySelector('.whatsapp-tooltip');
+    
+            whatsappBubble.addEventListener('mouseenter', () => {
+                tooltip.style.opacity = '1';
+                tooltip.style.visibility = 'visible';
+            });
+    
+            whatsappBubble.addEventListener('mouseleave', () => {
+                tooltip.style.opacity = '0';
+                tooltip.style.visibility = 'hidden';
+            });
+        });
+    </script>
+</body>
+</html> 

@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Yeni Proje - Admin Panel</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="stylesheet" href="/style.css">
+    <link rel="stylesheet" href="/admin/css/admin.css">
+</head>
+<body class="admin-edit">
+    <div class="admin-container">
+        <header class="admin-header">
+            <div class="logo">
+                <img src="/logo/Erdal%20K..png" alt="Erdal Kazan Logo">
+                <h1>Yeni Proje Ekle</h1>
+            </div>
+            <nav>
+                <ul>
+                    <li><a href="/admin"><i class="fas fa-arrow-left"></i> Geri Dön</a></li>
+                    <li><a href="#" id="logoutBtn"><i class="fas fa-sign-out-alt"></i> Çıkış Yap</a></li>
+                </ul>
+            </nav>
+        </header>
+
+        <main class="admin-main">
+            <form id="projectForm" class="project-form">
+                <div class="form-section">
+                    <h2>Proje Bilgileri</h2>
+                    <div class="form-group">
+                        <label for="title">Başlık <span class="required">*</span></label>
+                        <input type="text" id="title" name="title" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="description">Açıklama</label>
+                        <textarea id="description" name="description" rows="5"></textarea>
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <h2>Proje Görselleri</h2>
+                    <div class="file-upload-container">
+                        <input type="file" id="imageUpload" multiple accept="image/*" style="display: none;">
+                        <button type="button" class="btn btn-secondary" onclick="document.getElementById('imageUpload').click()">
+                            <i class="fas fa-upload"></i> Görsel Yükle
+                        </button>
+                        <div class="file-upload-info">Maksimum 10MB, JPG, PNG veya GIF</div>
+                    </div>
+                    
+                    <div id="imagePreviews" class="image-previews">
+                        </div>
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" onclick="window.location.href='/admin'">İptal</button>
+                    <button type="submit" class="btn btn-primary">
+                        <span id="submitBtnText">Projeyi Kaydet</span>
+                        <span id="loadingSpinner" class="loading-spinner" style="display: none;">
+                            <i class="fas fa-spinner fa-spin"></i> Kaydediliyor...
+                        </span>
+                    </button>
+                </div>
+            </form>
+        </main>
+    </div>
+
+    <div id="errorModal" class="modal">
+        <div class="modal-content">
+            <h3>Hata</h3>
+            <p id="errorMessage"></p>
+            <div class="modal-actions">
+                <button id="closeErrorModal" class="btn btn-primary">Tamam</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Check authentication status on page load
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                const response = await fetch('/admin/check-auth', {
+                    credentials: 'same-origin'
+                });
+                
+                if (!response.ok) {
+                    window.location.href = '/admin/login.html';
+                    return;
+                }
+                
+                // Set up logout button
+                document.getElementById('logoutBtn').addEventListener('click', async (e) => {
+                    e.preventDefault();
+                    await fetch('/admin/logout', {
+                        method: 'POST',
+                        credentials: 'same-origin'
+                    });
+                    window.location.href = '/admin/login.html';
+                });
+                
+                // Set up form submission
+                const form = document.getElementById('projectForm');
+                const imageUpload = document.getElementById('imageUpload');
+                const imagePreviews = document.getElementById('imagePreviews');
+                const submitBtnText = document.getElementById('submitBtnText');
+                const loadingSpinner = document.getElementById('loadingSpinner');
+                
+                let files = [];
+                
+                // Handle file selection
+                imageUpload.addEventListener('change', (e) => {
+                    const newFiles = Array.from(e.target.files);
+                    
+                    // Check total file size (max 10MB per file, 50MB total)
+                    const totalSize = [...files, ...newFiles].reduce((total, file) => total + file.size, 0);
+                    if (totalSize > 50 * 1024 * 1024) {
+                        showError('Toplam dosya boyutu 50MB\'ı geçemez');
+                        return;
+                    }
+                    
+                    files = [...files, ...newFiles];
+                    updateImagePreviews();
+                });
+                
+                // Update image previews
+                function updateImagePreviews() {
+                    imagePreviews.innerHTML = '';
+                    
+                    if (files.length === 0) {
+                        imagePreviews.innerHTML = '<div class="no-images">Henüz hiç görsel yüklenmedi</div>';
+                        return;
+                    }
+
+                    // Görsel önizlemeler için ızgara oluştur
+                    const grid = document.createElement('div');
+                    grid.className = 'image-previews-grid';
+                    imagePreviews.appendChild(grid);
+                    
+                    files.forEach((file, index) => {
+                        const reader = new FileReader();
+                        reader.onload = (e) => {
+                            const preview = document.createElement('div');
+                            preview.className = 'image-preview';
+                            preview.innerHTML = `
+                                <img src="${e.target.result}" alt="Preview">
+                                <button type="button" class="remove-image" data-index="${index}">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            `;
+                            grid.appendChild(preview);
+                            
+                            // Add event listener to remove button
+                            preview.querySelector('.remove-image').addEventListener('click', () => {
+                                // Index'i doğru hesaplamak için splice yapmadan önce tekrar yakalama gerekiyor
+                                const currentGrid = imagePreviews.querySelector('.image-previews-grid');
+                                const previewElements = Array.from(currentGrid.children);
+                                const clickedIndex = previewElements.indexOf(preview);
+                                
+                                if (clickedIndex !== -1) {
+                                    files.splice(clickedIndex, 1);
+                                    updateImagePreviews();
+                                }
+                            });
+                        };
+                        reader.readAsDataURL(file);
+                    });
+                }
+                
+                // Initialize with empty state
+                updateImagePreviews();
+                
+                // Handle form submission
+                form.addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    
+                    // Validate form
+                    const title = document.getElementById('title').value.trim();
+                    if (!title) {
+                        showError('Lütfen bir başlık girin');
+                        return;
+                    }
+                    
+                    // Disable form and show loading state
+                    const submitBtn = form.querySelector('button[type="submit"]');
+                    submitBtn.disabled = true;
+                    submitBtnText.style.display = 'none';
+                    loadingSpinner.style.display = 'inline-block';
+                    
+                    try {
+                        const formData = new FormData();
+                        formData.append('title', title);
+                        
+                        // Alt başlık ve teknolojiler kaldırıldı
+
+                        const description = document.getElementById('description').value.trim();
+                        if (description) formData.append('description', description);
+                        
+                        // Add files to form data
+                        files.forEach((file) => {
+                            formData.append('images', file);
+                        });
+                        
+                        // Submit form data
+                        const response = await fetch('/api/projects', {
+                            method: 'POST',
+                            body: formData,
+                            credentials: 'same-origin'
+                        });
+                        
+                        if (response.ok) {
+                            window.location.href = '/admin';
+                        } else {
+                            const error = await response.json();
+                            throw new Error(error.message || 'Proje kaydedilirken bir hata oluştu');
+                        }
+                    } catch (error) {
+                        console.error('Error saving project:', error);
+                        showError(error.message || 'Proje kaydedilirken bir hata oluştu. Lütfen tekrar deneyin.');
+                    } finally {
+                        // Re-enable form and hide loading state
+                        submitBtn.disabled = false;
+                        submitBtnText.style.display = 'inline-block';
+                        loadingSpinner.style.display = 'none';
+                    }
+                });
+                
+                // Set up error modal
+                const errorModal = document.getElementById('errorModal');
+                const errorMessage = document.getElementById('errorMessage');
+                const closeErrorModal = document.getElementById('closeErrorModal');
+                
+                function showError(message) {
+                    errorMessage.textContent = message;
+                    errorModal.style.display = 'flex';
+                }
+                
+                closeErrorModal.addEventListener('click', () => {
+                    errorModal.style.display = 'none';
+                });
+                
+                // Close modal when clicking outside
+                window.onclick = (event) => {
+                    if (event.target === errorModal) {
+                        errorModal.style.display = 'none';
+                    }
+                };
+                
+            } catch (error) {
+                console.error('Auth check error:', error);
+                window.location.href = '/admin/login.html';
+            }
+        });
+    </script>
+</body>
+</html>
