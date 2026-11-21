@@ -6,7 +6,44 @@ const { authenticateToken, isAdmin } = require('../middleware/auth');
 const { storage, cloudinary } = require('../middleware/cloudinary');
 
 const router = express.Router();
-const upload = multer({ storage });
+
+// Upload rules (Cloudinary's free plan also caps images at 10 MB).
+const MAX_FILE_SIZE = 10 * 1024 * 1024;
+const MAX_FILES = 10;
+const ALLOWED_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
+
+const upload = multer({
+  storage,
+  limits: { fileSize: MAX_FILE_SIZE, files: MAX_FILES },
+  fileFilter(req, file, cb) {
+    if (ALLOWED_TYPES.has(file.mimetype)) return cb(null, true);
+    const err = new Error(`Desteklenmeyen dosya türü: ${file.originalname}. Yalnızca JPG, PNG veya WEBP yükleyebilirsiniz.`);
+    err.code = 'UNSUPPORTED_TYPE';
+    cb(err);
+  },
+}).array('images', MAX_FILES);
+
+// Runs multer and turns its failures into clear 4xx/502 answers. Multer has
+// already removed any files of the failed request from Cloudinary.
+function handleUpload(req, res, next) {
+  upload(req, res, (err) => {
+    if (!err) return next();
+    if (err.code === 'LIMIT_FILE_SIZE') {
+      return res.status(413).json({ message: 'Her görsel en fazla 10 MB olabilir.' });
+    }
+    if (err.code === 'LIMIT_FILE_COUNT' || err.code === 'LIMIT_UNEXPECTED_FILE') {
+      return res.status(400).json({ message: `Tek seferde en fazla ${MAX_FILES} görsel yükleyebilirsiniz.` });
+    }
+    if (err.code === 'UNSUPPORTED_TYPE') {
+      return res.status(400).json({ message: err.message });
+    }
+    if (err instanceof multer.MulterError) {
+      return res.status(400).json({ message: 'Yükleme isteği geçersiz.' });
+    }
+    console.error('Görsel yükleme hatası:', err);
+    res.status(502).json({ message: 'Görseller yüklenemedi. Lütfen biraz sonra tekrar deneyin.' });
+  });
+}
 
 // Malformed ids can never match a document: answer 404 up front instead of
 // letting Mongoose throw a CastError (which used to surface as a 500).
@@ -77,7 +114,7 @@ router.get('/projects/:id', async (req, res) => {
 });
 
 // Create a new project
-router.post('/projects', authenticateToken, isAdmin, upload.array('images', 10), async (req, res) => {
+router.post('/projects', authenticateToken, isAdmin, handleUpload, async (req, res) => {
   try {
     const { title, description } = req.body || {};
     const project = new Project({ title, description, images: uploadedImages(req) });
@@ -89,7 +126,7 @@ router.post('/projects', authenticateToken, isAdmin, upload.array('images', 10),
 });
 
 // Update a project's text and append newly uploaded images
-router.put('/projects/:id', authenticateToken, isAdmin, upload.array('images', 10), async (req, res) => {
+router.put('/projects/:id', authenticateToken, isAdmin, handleUpload, async (req, res) => {
   try {
     const { title, description } = req.body || {};
     const project = await Project.findById(req.params.id);

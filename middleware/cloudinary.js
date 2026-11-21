@@ -8,7 +8,7 @@ cloudinary.config({
 
 const UPLOAD_OPTIONS = {
   folder: 'erdalkazan-projects',
-  allowed_formats: ['jpeg', 'png', 'jpg']
+  allowed_formats: ['jpeg', 'jpg', 'png', 'webp']
 };
 
 // Multer storage engine that streams each uploaded file straight to
