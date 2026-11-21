@@ -251,3 +251,12 @@ test('homepage: a project without images shows no empty image area', { skip }, a
   assert.equal(await page.locator('.project-card .project-slider').count(), 0);
   await page.context().close();
 });
+
+test('edit page explains when the project does not exist', { skip }, async () => {
+  const page = await newPage({ loggedIn: true });
+  await page.goto(`${srv.base}/admin/edit.html?id=507f1f77bcf86cd799439011`);
+
+  await page.locator('#errorModal').waitFor({ state: 'visible', timeout: 5000 });
+  assert.match(await page.locator('#errorMessage').textContent(), /bulunamadı/i);
+  await page.context().close();
+});

@@ -100,65 +100,36 @@
         
         // Check authentication status and load project data
         document.addEventListener('DOMContentLoaded', async () => {
-            try {
-                console.log('🚀 Edit page loading started');
+            // Hata penceresi her durumda kullanılabilsin diye önce kurulur
+            setupModals();
 
-                // Check authentication
-                console.log('🔐 Checking authentication...');
+            try {
                 const authResponse = await fetch('/admin/check-auth', {
                     credentials: 'same-origin'
                 });
-
-                console.log('Auth response status:', authResponse.status);
                 if (!authResponse.ok) {
-                    console.log('❌ Authentication failed, redirecting to login');
                     window.location.href = '/admin/login.html';
                     return;
                 }
 
-                const authData = await authResponse.json();
-                console.log('✅ Authentication successful:', authData);
-
-                // Get project ID from URL
-                const urlParams = new URLSearchParams(window.location.search);
-                const localProjectId = urlParams.get('id');
-
-                if (!localProjectId) {
-                    console.error('❌ No project ID found in URL');
+                projectId = new URLSearchParams(window.location.search).get('id');
+                if (!projectId) {
                     alert('Proje ID bulunamadı. Admin paneline yönlendiriliyorsunuz.');
                     window.location.href = '/admin';
                     return;
                 }
-                
-                projectId = localProjectId;
 
-                console.log('📋 Project ID:', projectId);
-
-                // Load project data
-                console.log('📥 Loading project data...');
                 await loadProject(projectId);
-
-                // Set up form submission
-                console.log('⚙️ Setting up form...');
                 setupForm();
-
-                // Set up modals
-                console.log('🔲 Setting up modals...');
-                setupModals();
-
-                console.log('✅ Edit page setup completed successfully');
-
             } catch (error) {
-                console.error('💥 Critical initialization error:', error);
-                console.error('Error stack:', error.stack);
-                showError('Sayfa yüklenirken kritik bir hata oluştu. Lütfen sayfayı yenileyin.'); 
+                console.error('Düzenleme sayfası yüklenemedi:', error);
+                showError(error.message || 'Sayfa yüklenirken bir hata oluştu. Lütfen sayfayı yenileyin.');
             }
         });
-                
+
         // Load project data
         async function loadProject(id) {
             try {
-                console.log('Fetching project data for ID:', id);
                 const response = await fetch(`/api/projects/${id}`, {
                     credentials: 'same-origin'
                 });
@@ -171,7 +142,6 @@
                 }
                 
                 const project = await response.json();
-                console.log('Project loaded successfully:', project);
                 
                 // Populate form fields
                 document.getElementById('title').value = project.title || '';
@@ -212,7 +182,7 @@
                 // Validate form
                 const title = document.getElementById('title').value.trim();
                 if (!title) {
-                    showError('⚠️ Lütfen bir başlık girin');
+                    showError('Lütfen bir başlık girin');
                     return;
                 }
                 
@@ -239,7 +209,6 @@
                     });
                     
                     // Update project
-                    console.log('📤 Updating project...');
                     const response = await fetch(`/api/projects/${projectId}`, {
                         method: 'PUT',
                         body: formData,
@@ -247,15 +216,14 @@
                     });
                     
                     if (response.ok) {
-                        console.log('✅ Project updated successfully');
                         window.location.href = '/admin';
                     } else {
                         const error = await response.json();
-                        throw new Error(error.message || '❌ Proje güncellenirken bir hata oluştu');
+                        throw new Error(error.message || 'Proje güncellenirken bir hata oluştu');
                     }
                 } catch (error) {
-                    console.error('❌ Error updating project:', error);
-                    showError('⚠️ ' + (error.message || 'Proje güncellenirken bir hata oluştu. Lütfen tekrar deneyin.'));
+                    console.error('Proje güncellenemedi:', error);
+                    showError(error.message || 'Proje güncellenirken bir hata oluştu. Lütfen tekrar deneyin.');
                 } finally {
                     // Re-enable form and hide loading state
                     submitBtn.disabled = false;

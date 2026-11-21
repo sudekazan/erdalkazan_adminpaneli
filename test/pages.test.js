@@ -85,3 +85,14 @@ test('the login page and admin stylesheet are reachable without a session', asyn
   assert.equal((await get('/admin/login.html')).status, 200);
   assert.equal((await get('/admin/css/admin.css')).status, 200);
 });
+
+test('health check reports whether the database is reachable', async (t) => {
+  const mongoose = require('mongoose');
+  assert.equal((await get('/healthz')).status, 503, 'not connected');
+
+  // readyState is a non-configurable getter on Connection.prototype, which
+  // t.mock.getter cannot restore; shadow it on the instance instead.
+  Object.defineProperty(mongoose.connection, 'readyState', { get: () => 1, configurable: true });
+  t.after(() => { delete mongoose.connection.readyState; });
+  assert.equal((await get('/healthz')).status, 200, 'connected');
+});

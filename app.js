@@ -1,4 +1,5 @@
 const express = require('express');
+const mongoose = require('mongoose');
 const path = require('path');
 const cookieParser = require('cookie-parser');
 
@@ -31,6 +32,12 @@ app.use((req, res, next) => {
     'Content-Security-Policy': "frame-ancestors 'none'; object-src 'none'; base-uri 'self'",
   });
   next();
+});
+
+// Health check for Docker / uptime monitors: 200 only while MongoDB is connected.
+app.get('/healthz', (req, res) => {
+  const connected = mongoose.connection.readyState === 1;
+  res.status(connected ? 200 : 503).json({ status: connected ? 'ok' : 'veritabanı bağlı değil' });
 });
 
 app.use(express.json());
