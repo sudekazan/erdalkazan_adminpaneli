@@ -87,6 +87,77 @@ test('edit page shows existing images without running injected attributes', { sk
   await page.context().close();
 });
 
+const MB = 1024 * 1024;
+const upload = (name, size = 2048, mimeType = 'image/jpeg') => ({ name, mimeType, buffer: Buffer.alloc(size, name) });
+
+// Names of the files a multipart request body carries.
+function uploadedNames(request) {
+  const body = request.postDataBuffer().toString('latin1');
+  return [...body.matchAll(/name="images"; filename="([^"]+)"/g)].map((m) => m[1]);
+}
+
+async function removePreview(page, name) {
+  const preview = page.locator('.image-preview', { has: page.locator(`img[alt="${name}"]`) });
+  await preview.hover();
+  await preview.locator('.remove-image').click();
+}
+
+test('new project page: removing a preview drops exactly that file', { skip }, async () => {
+  const page = await newPage({ loggedIn: true });
+  await page.goto(`${srv.base}/admin/new.html`);
+  await page.fill('#title', 'Yeni proje');
+  // A larger first file finishes reading last, which used to scramble the order.
+  await page.setInputFiles('#imageUpload', [upload('a.jpg', 3 * MB), upload('b.jpg'), upload('c.jpg')]);
+  await page.waitForFunction(() => document.querySelectorAll('.image-preview').length === 3, null, { timeout: 5000 });
+
+  await removePreview(page, 'b.jpg');
+  const request = page.waitForRequest((r) => r.url().endsWith('/api/projects') && r.method() === 'POST');
+  await page.click('button[type="submit"]');
+
+  assert.deepEqual(uploadedNames(await request), ['a.jpg', 'c.jpg']);
+  await page.context().close();
+});
+
+for (const [label, files] of [
+  ['a file over 10 MB', [upload('dev.jpg', 10 * MB + 1)]],
+  ['an unsupported type', [upload('anim.gif', 2048, 'image/gif')]],
+  ['more than 10 files', Array.from({ length: 11 }, (_, i) => upload(`g${i}.jpg`))],
+]) {
+  test(`new project page refuses ${label} before uploading`, { skip }, async () => {
+    const page = await newPage({ loggedIn: true });
+    await page.goto(`${srv.base}/admin/new.html`);
+    await page.setInputFiles('#imageUpload', files);
+
+    await page.locator('#errorModal').waitFor({ state: 'visible', timeout: 5000 });
+    assert.equal(await page.locator('.image-preview').count(), 0);
+    await page.context().close();
+  });
+}
+
+test('edit page: removing a new image preview keeps existing images and the other new file', { skip }, async () => {
+  const p = await seedProject({
+    title: 'Var olan',
+    images: [{ url: 'https://res.cloudinary.com/demo/image/upload/v1/erdalkazan-projects/aaa.jpg', filename: 'erdalkazan-projects/aaa' }],
+  });
+  const page = await newPage({ loggedIn: true });
+  await page.goto(`${srv.base}/admin/edit.html?id=${p._id}`);
+  await page.locator('.image-preview').first().waitFor();
+  await page.setInputFiles('#imageUpload', [upload('x.jpg', 3 * MB), upload('y.jpg')]);
+  await page.waitForFunction(() => document.querySelectorAll('.image-preview').length === 3, null, { timeout: 5000 });
+
+  await removePreview(page, 'x.jpg');
+  const request = page.waitForRequest((r) => r.url().includes(`/api/projects/${p._id}`) && r.method() === 'PUT');
+  await page.click('button[type="submit"]');
+
+  assert.deepEqual(uploadedNames(await request), ['y.jpg']);
+  await page.waitForURL(/\/admin\/?$/, { timeout: 5000 });
+  assert.deepEqual(
+    getStored(p._id).images.map((i) => i.filename),
+    ['erdalkazan-projects/aaa', 'erdalkazan-projects/fake1'],
+  );
+  await page.context().close();
+});
+
 test('edit page deletes an existing image', { skip }, async () => {
   const p = await seedProject({
     title: 'Görselli',
