@@ -4,8 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Yeni Proje - Admin Panel</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-    <link rel="stylesheet" href="/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link rel="stylesheet" href="/admin/css/admin.css">
 </head>
 <body class="admin-edit">
@@ -41,11 +40,11 @@
                 <div class="form-section">
                     <h2>Proje Görselleri</h2>
                     <div class="file-upload-container">
-                        <input type="file" id="imageUpload" multiple accept="image/*" style="display: none;">
+                        <input type="file" id="imageUpload" multiple accept="image/jpeg,image/png,image/webp" style="display: none;">
                         <button type="button" class="btn btn-secondary" onclick="document.getElementById('imageUpload').click()">
                             <i class="fas fa-upload"></i> Görsel Yükle
                         </button>
-                        <div class="file-upload-info">Maksimum 10MB, JPG, PNG veya GIF</div>
+                        <div class="file-upload-info">JPG, PNG veya WEBP · görsel başına en fazla 10 MB · tek seferde en fazla 10 görsel</div>
                     </div>
                     
                     <div id="imagePreviews" class="image-previews">
@@ -75,6 +74,7 @@
         </div>
     </div>
 
+    <script src="/admin/js/image-picker.js"></script>
     <script>
         // Check authentication status on page load
         document.addEventListener('DOMContentLoaded', async () => {
@@ -105,67 +105,31 @@
                 const submitBtnText = document.getElementById('submitBtnText');
                 const loadingSpinner = document.getElementById('loadingSpinner');
                 
-                let files = [];
-                
+                const picker = ImagePicker.create({
+                    onError: (message) => showError(message),
+                    onChange: () => updateImagePreviews()
+                });
+
                 // Handle file selection
                 imageUpload.addEventListener('change', (e) => {
-                    const newFiles = Array.from(e.target.files);
-                    
-                    // Check total file size (max 10MB per file, 50MB total)
-                    const totalSize = [...files, ...newFiles].reduce((total, file) => total + file.size, 0);
-                    if (totalSize > 50 * 1024 * 1024) {
-                        showError('Toplam dosya boyutu 50MB\'ı geçemez');
-                        return;
-                    }
-                    
-                    files = [...files, ...newFiles];
-                    updateImagePreviews();
+                    picker.add(e.target.files);
+                    // Aynı dosyanın tekrar seçilebilmesi için sıfırla
+                    e.target.value = '';
                 });
-                
+
                 // Update image previews
                 function updateImagePreviews() {
-                    imagePreviews.innerHTML = '';
-                    
-                    if (files.length === 0) {
-                        imagePreviews.innerHTML = '<div class="no-images">Henüz hiç görsel yüklenmedi</div>';
+                    const previews = picker.previews();
+                    if (previews.length === 0) {
+                        imagePreviews.innerHTML = '<div class="no-images">Henüz hiç görsel seçilmedi</div>';
                         return;
                     }
-
-                    // Görsel önizlemeler için ızgara oluştur
                     const grid = document.createElement('div');
                     grid.className = 'image-previews-grid';
-                    imagePreviews.appendChild(grid);
-                    
-                    files.forEach((file, index) => {
-                        const reader = new FileReader();
-                        reader.onload = (e) => {
-                            const preview = document.createElement('div');
-                            preview.className = 'image-preview';
-                            preview.innerHTML = `
-                                <img src="${e.target.result}" alt="Preview">
-                                <button type="button" class="remove-image" data-index="${index}">
-                                    <i class="fas fa-times"></i>
-                                </button>
-                            `;
-                            grid.appendChild(preview);
-                            
-                            // Add event listener to remove button
-                            preview.querySelector('.remove-image').addEventListener('click', () => {
-                                // Index'i doğru hesaplamak için splice yapmadan önce tekrar yakalama gerekiyor
-                                const currentGrid = imagePreviews.querySelector('.image-previews-grid');
-                                const previewElements = Array.from(currentGrid.children);
-                                const clickedIndex = previewElements.indexOf(preview);
-                                
-                                if (clickedIndex !== -1) {
-                                    files.splice(clickedIndex, 1);
-                                    updateImagePreviews();
-                                }
-                            });
-                        };
-                        reader.readAsDataURL(file);
-                    });
+                    grid.append(...previews);
+                    imagePreviews.replaceChildren(grid);
                 }
-                
+
                 // Initialize with empty state
                 updateImagePreviews();
                 
@@ -196,7 +160,7 @@
                         if (description) formData.append('description', description);
                         
                         // Add files to form data
-                        files.forEach((file) => {
+                        picker.files.forEach((file) => {
                             formData.append('images', file);
                         });
                         

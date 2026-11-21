@@ -53,6 +53,25 @@ body {
     color: #007bff;
 }
 
+/* Mobil menü butonu (yalnızca dar ekranlarda görünür) */
+.nav-toggle {
+    display: none;
+    background: none;
+    border: none;
+    color: #333;
+    font-size: 1.5rem;
+    width: 44px;
+    height: 44px;
+    cursor: pointer;
+}
+
+/* Sabit menünün altında kalmaması için bölümlere kayma payı */
+#hakkimda,
+#projeler,
+#iletisim {
+    scroll-margin-top: 80px;
+}
+
 /* Ana Kart Stilleri */
 .card-container {
     display: flex;
@@ -145,6 +164,10 @@ body {
     color: #555;
     text-align: justify;
     text-justify: inter-word;
+}
+
+.description p + p {
+    margin-top: 1rem;
 }
 
 /* Projeler Bölümü */
@@ -278,6 +301,12 @@ body {
     display: flex;
     align-items: center;
     gap: 10px;
+    color: #333;
+    text-decoration: none;
+}
+
+.contact-item:hover {
+    color: #007bff;
 }
 
 .contact-item i {
@@ -292,8 +321,30 @@ body {
         margin-top: 80px;
     }
 
+    .nav-toggle {
+        display: block;
+    }
+
     .nav-links {
         display: none;
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        flex-direction: column;
+        gap: 0;
+        background-color: #fff;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+
+    .nav-links.open {
+        display: flex;
+    }
+
+    .nav-links a {
+        display: block;
+        padding: 14px 20px;
+        border-top: 1px solid #eee;
     }
 
     .contact-info {

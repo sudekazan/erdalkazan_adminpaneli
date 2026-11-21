@@ -1,107 +1,104 @@
-# Erdal Kazan - Admin Panel
+# Erdal Kazan - Web Sitesi ve Admin Paneli
 
-Bu proje, Erdal Kazan'ın kişisel web sitesi için yönetim panelidir. Bu panel üzerinden projeleri yönetebilir, yeni projeler ekleyebilir, düzenleyebilir ve silebilirsiniz.
+Erdal Kazan'ın makina boya web sitesi ve projelerin yönetildiği admin paneli.
+Ana sayfa projeleri API'den okur; admin panelinden proje eklenir, düzenlenir ve silinir.
+Görseller Cloudinary'de, proje bilgileri MongoDB'de tutulur.
 
 ## Özellikler
 
-- Proje yönetimi (Ekleme, Düzenleme, Silme, Listeleme)
-- Çoklu görsel yükleme desteği
-- Responsive tasarım
-- Güvenli kimlik doğrulama
-- MongoDB veritabanı entegrasyonu
+- Proje yönetimi (ekleme, düzenleme, silme, listeleme)
+- Projeye çoklu görsel yükleme ve tek tek görsel silme
+- Proje silinince görsellerinin Cloudinary'den de silinmesi
+- Mobil uyumlu ana sayfa ve admin paneli
+- JWT oturumu (HTTP-only çerez), giriş deneme sınırı
 
 ## Gereksinimler
 
-- Node.js (v14 veya üzeri)
+- Node.js 20 veya üzeri (Docker imajı Node 22 kullanır)
 - MongoDB (yerel veya MongoDB Atlas)
-- npm veya yarn
+- Cloudinary hesabı
 
 ## Kurulum
 
-1. Projeyi klonlayın:
-   ```bash
-   git clone https://github.com/sudekazan/erdalkazan.git
-   cd erdalkazan
-   ```
+```bash
+git clone https://github.com/sudekazan/erdalkazan_adminpaneli.git
+cd erdalkazan_adminpaneli
+npm install
+cp .env.example .env   # sonra .env içindeki değerleri doldurun
+npm run dev            # geliştirme (nodemon ile) - ya da: npm start
+```
 
-2. Bağımlılıkları yükleyin:
-   ```bash
-   npm install
-   ```
+Ana sayfa: `http://localhost:3000` - Admin paneli: `http://localhost:3000/admin`
 
-3. `.env` dosyasını oluşturun ve gerekli ortam değişkenlerini ayarlayın:
-   ```env
-   PORT=3000
-   MONGO_URI=mongodb://localhost:27017/erdalkazan
-   ADMIN_PASSWORD=guvenli_sifre
-   JWT_SECRET=guvenli_jwt_anahtari
-   NODE_ENV=development
-   ```
+## Ortam değişkenleri
 
-4. MongoDB bağlantısını sağlayın:
-   - Yerel bir MongoDB örneği çalıştırın veya
-   - MongoDB Atlas kullanıyorsanız, bağlantı dizenizi `MONGO_URI` değişkenine ekleyin
+Tüm değişkenler açıklamalarıyla `.env.example` dosyasında.
 
-5. Uygulamayı başlatın:
-   ```bash
-   # Geliştirme modunda başlat
-   npm run dev
-   
-   # Veya üretim modunda başlat
-   npm start
-   ```
+| Değişken | Zorunlu | Açıklama |
+|---|---|---|
+| `MONGO_URI` | evet | MongoDB bağlantı adresi |
+| `ADMIN_PASSWORD` | evet | Admin şifresi; düz metin veya bcrypt hash'i |
+| `JWT_SECRET` | evet | Oturum imzalama anahtarı (uzun, rastgele) |
+| `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` | evet | Görsel yükleme |
+| `NODE_ENV` | hayır | `production` ise oturum çerezi yalnızca HTTPS ile gönderilir |
+| `TRUST_PROXY` | hayır | Ters proxy arkasında `1` (gerçek ziyaretçi IP'si için) |
+| `PORT` | hayır | Varsayılan `3000` |
 
-6. Tarayıcıda şu adresi açın:
-   ```
-   http://localhost:3000/admin
-   ```
+`ADMIN_PASSWORD` veya `JWT_SECRET` tanımlı değilse site çalışır ama admin girişi kapalı kalır.
+Giriş kontrolü her ortamda geçerlidir; geliştirme modunda da şifreyle giriş yapılır.
 
-## Kullanım
+Şifreyi hash olarak saklamak için:
 
-### Admin Paneline Giriş
-1. Tarayıcınızı açın ve `http://localhost:3000/admin` adresine gidin
-2. `.env` dosyasında belirttiğiniz şifreyi kullanarak giriş yapın
+```bash
+node -e "console.log(require('bcryptjs').hashSync('sifreniz', 12))"
+```
 
-### Yeni Proje Ekleme
-1. Ana sayfadan "Yeni Proje" butonuna tıklayın
-2. Gerekli alanları doldurun
-3. İlgili görselleri yükleyin
-4. "Kaydet" butonuna tıklayın
+Çıkan değeri `ADMIN_PASSWORD` yapın. docker compose `.env` dosyasında hash içindeki her `$` işaretini `$$` olarak yazın.
 
-### Proje Düzenleme
-1. Düzenlemek istediğiniz projenin yanındaki "Düzenle" butonuna tıklayın
-2. İstediğiniz değişiklikleri yapın
-3. "Değişiklikleri Kaydet" butonuna tıklayın
+## Görsel yükleme kuralları
 
-### Proje Silme
-1. Silmek istediğiniz projenin yanındaki "Sil" butonuna tıklayın
-2. Açılan onay kutusunda "Sil" butonuna tıklayın
+- Desteklenen türler: JPG, PNG, WEBP
+- Görsel başına en fazla 10 MB
+- Bir kayıtta en fazla 10 yeni görsel (düzenlerken tekrar ekleyebilirsiniz)
 
-## Görsel Yükleme
-- Her projeye en fazla 10 adet görsel yükleyebilirsiniz
-- Desteklenen dosya türleri: JPG, PNG, GIF
-- Maksimum dosya boyutu: 10MB
-- Toplam maksimum boyut: 50MB
+Kurallar hem tarayıcıda hem sunucuda uygulanır. Kurala uymayan bir istekte, o istekte yüklenen görseller Cloudinary'den geri silinir.
 
 ## Güvenlik
-- Tüm admin rotaları kimlik doğrulama gerektirir
-- Şifreler güvenli bir şekilde hash'lenmiştir
-- JWT tabanlı kimlik doğrulama kullanılmaktadır
-- HTTP-only çerezler kullanılarak güvenli oturum yönetimi sağlanmaktadır
 
-## Geliştirme
+- Admin sayfaları ve tüm yazma işlemleri geçerli oturum ister.
+- Aynı yerden 5 hatalı şifre denemesinden sonra giriş 15 dakika kilitlenir.
+- Proje verileri sayfalarda HTML olarak değil metin olarak gösterilir (XSS koruması).
+- Site başka sitelerin içine gömülemez (X-Frame-Options); CORS kapalıdır.
+- `npm audit` CI'da her çalıştırmada kontrol edilir.
 
-### Ortam Değişkenleri
-- `PORT`: Uygulamanın çalışacağı port (varsayılan: 3000)
-- `MONGO_URI`: MongoDB bağlantı dizesi
-- `ADMIN_PASSWORD`: Admin paneli şifresi
-- `JWT_SECRET`: JWT imzalama için kullanılacak gizli anahtar
-- `NODE_ENV`: Uygulama ortamı (development/production)
+## Testler
 
-### Komutlar
-- `npm start`: Uygulamayı üretim modunda başlatır
-- `npm run dev`: Uygulamayı geliştirme modunda başlatır (nodemon ile)
+```bash
+npm test
+```
+
+Testler MongoDB veya Cloudinary gerektirmez: veritabanı kayıtları ve Cloudinary çağrıları bellekte taklit edilir, geri kalan her şey (Express, rotalar, oturum, yükleme, Mongoose doğrulaması) gerçek çalışır.
+`test/ui.test.js` gerçek tarayıcıda çalışır ve Playwright ister; Playwright kurulu değilse bu testler atlanır:
+
+```bash
+npm install --no-save playwright && npx playwright install chromium
+```
+
+## Yayına alma
+
+`main` dalına her gönderimde GitHub Actions (`.github/workflows/sunucuya-yayinla.yml`):
+
+1. Testleri ve bağımlılık taramasını çalıştırır.
+2. Geçerse Docker imajını derleyip `ghcr.io/sudekazan/erdalkazan` olarak yükler.
+3. Sunucuda `docker compose pull/up` ile servisi günceller.
+
+Gereken GitHub secret'ları: `SERVER_IP`, `SSH_PRIVATE_KEY` ve önerilen `SSH_KNOWN_HOSTS` (`ssh-keyscan -H SUNUCU_IP` çıktısı).
+`SSH_KNOWN_HOSTS` yoksa sunucu anahtarı doğrulanmadan kabul edilir.
+
+Docker imajı `/healthz` uç noktasıyla sağlık kontrolü yapar (MongoDB bağlı değilse kapsayıcı "unhealthy" görünür).
+
+## Komutlar
+
+- `npm start`: Uygulamayı başlatır
+- `npm run dev`: Değişikliklerde otomatik yeniden başlatır (nodemon)
 - `npm test`: Testleri çalıştırır
-
-## Lisans
-Bu proje MIT lisansı altında lisanslanmıştır. Daha fazla bilgi için `LICENSE` dosyasına bakın.

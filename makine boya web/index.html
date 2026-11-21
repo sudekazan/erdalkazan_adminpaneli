@@ -3,16 +3,24 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Makina Boya Uzmanı</title>
+    <title>Erdal Kazan | Makina Boya Uzmanı</title>
+    <meta name="description" content="Erdal Kazan - 20 yılı aşkın tecrübeyle sanayi tipi makine ve ekipman boyama, epoksi kaplama, astar ve son kat boya uygulamaları.">
+    <meta property="og:title" content="Erdal Kazan | Makina Boya Uzmanı">
+    <meta property="og:description" content="Sanayi tipi makine ve ekipman boyama, epoksi kaplama, astar ve son kat boya uygulamaları.">
+    <meta property="og:type" content="website">
+    <link rel="icon" type="image/png" href="logo/Erdal%20K..png">
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
-<body>
+<body id="anasayfa">
     <!-- Navbar -->
     <nav class="navbar">
         <div class="nav-container">
             <div class="logo">Makina Boya</div>
-            <ul class="nav-links">
+            <button type="button" class="nav-toggle" aria-label="Menüyü aç" aria-expanded="false" aria-controls="nav-links">
+                <i class="fas fa-bars" aria-hidden="true"></i>
+            </button>
+            <ul class="nav-links" id="nav-links">
                 <li><a href="#anasayfa">Ana Sayfa</a></li>
                 <li><a href="#hakkimda">Hakkımda</a></li>
                 <li><a href="#projeler">Projeler</a></li>
@@ -24,64 +32,62 @@
     <!-- Ana Kart Bölümü -->
     <div id="hakkimda" class="card-container">
         <div class="profile-info">
-            <img src="logo/Erdal K..png" alt="Profil Resmi" class="profile-img">
+            <img src="logo/Erdal%20K..png" alt="Erdal Kazan logosu" class="profile-img">
             <h2 class="profile-name">Erdal Kazan</h2>
             <div class="blue-line"></div>
             <p class="profile-title">Makina Boya Uzmanı</p>
             <div class="social-icons">
-                <a href="tel:+905372568244"><i class="fas fa-phone"></i></a>
-                <a href="mailto:erdalkazan1616@gmail.com"><i class="fas fa-envelope"></i></a>
-                <a href="https://instagram.com/kazan_erdal1616" target="_blank"><i class="fab fa-instagram"></i></a>
-                <a href="https://wa.me/905372568244" target="_blank"><i class="fab fa-whatsapp"></i></a>
+                <a href="tel:+905372568244" aria-label="Telefonla ara"><i class="fas fa-phone" aria-hidden="true"></i></a>
+                <a href="mailto:erdalkazan1616@gmail.com" aria-label="E-posta gönder"><i class="fas fa-envelope" aria-hidden="true"></i></a>
+                <a href="https://instagram.com/kazan_erdal1616" target="_blank" rel="noopener" aria-label="Instagram"><i class="fab fa-instagram" aria-hidden="true"></i></a>
+                <a href="https://wa.me/905372568244" target="_blank" rel="noopener" aria-label="WhatsApp"><i class="fab fa-whatsapp" aria-hidden="true"></i></a>
             </div>
         </div>
         <div class="about-info">
             <h1>Hakkımda</h1>
             <p class="sub-title">20+ Yıllık Tecrübe</p>
-            <p class="description">
-                Uzun yıllardır sanayi tipi makine ve ekipman boyama alanında hizmet veriyorum. Tecrübem ve işime olan özen sayesinde her projede kaliteli ve dayanıklı sonuçlar elde ediyorum.
-
-                Epoksi kaplama, astar uygulaması ve son kat boya işlemlerini dikkatle uyguluyor; yüzey hazırlığından teslimata kadar her aşamada titiz çalışıyorum.
-
-                Müşteri memnuniyetini ön planda tutarak, işimi zamanında ve temiz bir şekilde teslim etmeye özen gösteriyorum.
-            </p>
+            <div class="description">
+                <p>Uzun yıllardır sanayi tipi makine ve ekipman boyama alanında hizmet veriyorum. Tecrübem ve işime olan özen sayesinde her projede kaliteli ve dayanıklı sonuçlar elde ediyorum.</p>
+                <p>Epoksi kaplama, astar uygulaması ve son kat boya işlemlerini dikkatle uyguluyor; yüzey hazırlığından teslimata kadar her aşamada titiz çalışıyorum.</p>
+                <p>Müşteri memnuniyetini ön planda tutarak, işimi zamanında ve temiz bir şekilde teslim etmeye özen gösteriyorum.</p>
+            </div>
         </div>
     </div>
 
     <!-- Başa Dön Butonu -->
-    <button id="backToTop" class="back-to-top">
-        <i class="fas fa-arrow-up"></i>
+    <button id="backToTop" class="back-to-top" type="button" aria-label="Başa dön">
+        <i class="fas fa-arrow-up" aria-hidden="true"></i>
     </button>
 
     <!-- Projeler Bölümü -->
     <section id="projeler" class="projects-section">
         <h2>Projelerim</h2>
         <div id="projects-container" class="projects-container">
-            </div>
+        </div>
     </section>
 
     <!-- İletişim Bölümü -->
     <section id="iletisim" class="contact-section">
         <h2>İletişim</h2>
         <div class="contact-info">
-            <div class="contact-item">
-                <i class="fas fa-phone"></i>
-                <p>+90 537 256 82 44</p>
-            </div>
-            <div class="contact-item">
-                <i class="fas fa-envelope"></i>
-                <p>erdalkazan1616@gmail.com</p>
-            </div>
-            <div class="contact-item">
-                <i class="fab fa-instagram"></i>
-                <p>@kazan_erdal1616</p>
-            </div>
+            <a class="contact-item" href="tel:+905372568244">
+                <i class="fas fa-phone" aria-hidden="true"></i>
+                <span>+90 537 256 82 44</span>
+            </a>
+            <a class="contact-item" href="mailto:erdalkazan1616@gmail.com">
+                <i class="fas fa-envelope" aria-hidden="true"></i>
+                <span>erdalkazan1616@gmail.com</span>
+            </a>
+            <a class="contact-item" href="https://instagram.com/kazan_erdal1616" target="_blank" rel="noopener">
+                <i class="fab fa-instagram" aria-hidden="true"></i>
+                <span>@kazan_erdal1616</span>
+            </a>
         </div>
     </section>
 
     <!-- WhatsApp Baloncuğu -->
-    <a href="https://wa.me/905372568244" class="whatsapp-bubble" target="_blank">
-        <i class="fab fa-whatsapp"></i>
+    <a href="https://wa.me/905372568244" class="whatsapp-bubble" target="_blank" rel="noopener" aria-label="WhatsApp ile yazın">
+        <i class="fab fa-whatsapp" aria-hidden="true"></i>
         <div class="whatsapp-tooltip">
             Merhaba! Benimle iletişime geçmek için tıklayın.
         </div>
@@ -112,30 +118,9 @@
                         return;
                     }
     
-                    projectsContainer.innerHTML = projects.map((p, index) => {
-                        // Cloudinary URL'sinden görsel HTML'i oluşturuluyor
-                        const imagesHtml = (p.images || []).map(img => `<img src="${img.url}" alt="${p.title} Görsel" class="slider-image">`).join('');
-                        
-                        // Slider butonlarını sadece birden fazla görsel varsa göster
-                        const hasMultipleImages = p.images && p.images.length > 1;
-    
-                        return `
-                            <div class="project-card">
-                                <div class="project-slider">
-                                    <div class="slider-container" id="slider-container-${index}">
-                                        ${imagesHtml}
-                                    </div>
-                                    ${hasMultipleImages ? `
-                                        <button class="slider-button prev" data-target="${index}">❮</button>
-                                        <button class="slider-button next" data-target="${index}">❯</button>
-                                    ` : ''}
-                                </div>
-                                <div class="project-info">
-                                    <h3>${p.title || ''}</h3>
-                                    <p class="project-description">${(p.description || '').replace(/\n/g, '<br>')}</p>
-                                </div>
-                            </div>`;
-                    }).join('');
+                    // Proje verisi her zaman metin olarak eklenir (textContent / src),
+                    // asla HTML olarak yorumlanmaz.
+                    projectsContainer.replaceChildren(...projects.map(renderProject));
     
                     // Yeni oluşturulan HTML elementleri için slider mantığını başlat
                     initSliders();
@@ -146,6 +131,66 @@
                 }
             }
             
+            // Cloudinary görsellerini ekrana uygun boyutta ve modern formatta
+            // (WebP/AVIF) iste; diğer adresleri olduğu gibi bırak.
+            function optimizedImageUrl(url) {
+                return String(url).replace(
+                    /^(https:\/\/res\.cloudinary\.com\/[^/]+\/image\/upload\/)(?!f_auto)/,
+                    '$1f_auto,q_auto,w_1200/'
+                );
+            }
+
+            function el(tag, className, text) {
+                const node = document.createElement(tag);
+                if (className) node.className = className;
+                if (text !== undefined) node.textContent = text;
+                return node;
+            }
+
+            function renderProject(p, index) {
+                const images = p.images || [];
+                const title = p.title || '';
+
+                const card = el('div', 'project-card');
+
+                if (images.length > 0) {
+                    const container = el('div', 'slider-container');
+                    container.id = `slider-container-${index}`;
+                    images.forEach((img, i) => {
+                        const image = el('img', 'slider-image');
+                        image.src = optimizedImageUrl(img.url);
+                        image.alt = `${title} görseli ${i + 1}`;
+                        image.loading = i === 0 ? 'eager' : 'lazy';
+                        container.appendChild(image);
+                    });
+
+                    const slider = el('div', 'project-slider');
+                    slider.appendChild(container);
+                    if (images.length > 1) {
+                        for (const [dir, label, name] of [['prev', '❮', 'Önceki görsel'], ['next', '❯', 'Sonraki görsel']]) {
+                            const button = el('button', `slider-button ${dir}`, label);
+                            button.type = 'button';
+                            button.dataset.target = String(index);
+                            button.setAttribute('aria-label', name);
+                            slider.appendChild(button);
+                        }
+                    }
+                    card.appendChild(slider);
+                }
+
+                const description = el('p', 'project-description');
+                (p.description || '').split('\n').forEach((line, i) => {
+                    if (i > 0) description.appendChild(document.createElement('br'));
+                    description.appendChild(document.createTextNode(line));
+                });
+
+                const info = el('div', 'project-info');
+                info.append(el('h3', null, title), description);
+
+                card.appendChild(info);
+                return card;
+            }
+
             // Fonksiyon 2: Slider mantığını kuran fonksiyon (Artık ana fonksiyon tarafından çağrılıyor)
             function initSliders() {
                 // DİKKAT: Dinamik olarak yüklenen sliderları tekrar seçiyoruz.
@@ -189,6 +234,19 @@
             
             // ANA İŞLEMİ BAŞLAT
             fetchAndDisplayProjects();
+
+            // Mobil menü
+            const navToggle = document.querySelector('.nav-toggle');
+            const navLinks = document.getElementById('nav-links');
+            function setMenuOpen(open) {
+                navLinks.classList.toggle('open', open);
+                navToggle.setAttribute('aria-expanded', String(open));
+                navToggle.setAttribute('aria-label', open ? 'Menüyü kapat' : 'Menüyü aç');
+            }
+            navToggle.addEventListener('click', () => setMenuOpen(!navLinks.classList.contains('open')));
+            navLinks.addEventListener('click', (e) => {
+                if (e.target.closest('a')) setMenuOpen(false);
+            });
     
             // ----------------------------------------------------
             // Başa dön butonu ve WhatsApp baloncuğu kodları (değişmedi)

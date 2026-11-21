@@ -1,117 +1,38 @@
-require('dotenv').config();
-const express = require('express');
+require('dotenv').config({ quiet: true });
 const mongoose = require('mongoose');
-const path = require('path');
-const cookieParser = require('cookie-parser');
-const cors = require('cors');
-const fs = require('fs');
+const app = require('./app');
 
-// Import routes
-const adminRoutes = require('./routes/admin');
-const apiRoutes = require('./routes/api');
-const { authenticateToken } = require('./middleware/auth');
-
-// Create Express app
-const app = express();
-
-// Middleware
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-app.use(cookieParser());
-app.use(cors({
-  origin: true,
-  credentials: true
-}));
-
-// Serve static files from the public directory
-app.use(express.static(path.join(__dirname, 'public')));
-
-// Serve main website files from makine boya web directory
-app.use(express.static(path.join(__dirname, 'makine boya web')));
-
-// API Routes
-app.use('/api', apiRoutes);
-
-// Admin Routes
-app.use('/admin', adminRoutes);
-
-// Serve login page
-app.get('/admin/login.html', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public/admin/login.html'));
-});
-
-// Serve admin panel files with authentication check
-app.get('/admin', (req, res) => {
-  // Check if user is authenticated
-  const token = req.cookies.token;
-  if (!token) {
-    return res.redirect('/admin/login.html');
-  }
-  // If authenticated, serve the admin panel
-  res.sendFile(path.join(__dirname, 'public/admin/index.html'));
-});
-
-// Serve other admin panel files
-app.get('/admin/:path', (req, res, next) => {
-  const filePath = path.join(__dirname, 'public', req.path);
-  
-  // For HTML files (except login), check authentication
-  if (req.path.endsWith('.html') && !req.path.endsWith('login.html')) {
-    const token = req.cookies.token;
-    if (!token) {
-      return res.redirect('/admin/login.html');
-    }
-  }
-  
-  // Serve the file if it exists, otherwise next()
-  fs.access(filePath, fs.constants.F_OK, (err) => {
-    if (err) return next();
-    res.sendFile(filePath);
-  });
-});
-
-// Error handling middleware
-app.use((err, req, res, next) => {
-  console.error('Error:', err.stack);
-  res.status(500).json({ 
-    success: false, 
-    message: 'Something went wrong!', 
-    error: process.env.NODE_ENV === 'development' ? err.message : undefined 
-  });
-});
-
-// 404 handler
-app.use((req, res) => {
-  res.status(404).json({
-    success: false,
-    message: 'Not Found'
-  });
-});
-
-// Connect to MongoDB
 const PORT = process.env.PORT || 3000;
 const MONGODB_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/erdalkazan';
 
-// Create uploads directory if it doesn't exist
-const uploadsDir = path.join(__dirname, 'uploads');
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
+// The public site works without these, but the admin panel and image
+// uploads do not, so say so loudly at startup.
+const missing = ['ADMIN_PASSWORD', 'JWT_SECRET', 'CLOUDINARY_CLOUD_NAME', 'CLOUDINARY_API_KEY', 'CLOUDINARY_API_SECRET']
+  .filter((name) => !process.env[name]);
+if (missing.length > 0) {
+  console.warn(`UYARI: Şu ortam değişkenleri tanımlı değil: ${missing.join(', ')}. Admin girişi veya görsel yükleme çalışmayacak.`);
 }
 
 mongoose
-  .connect(MONGODB_URI, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-  })
+  .connect(MONGODB_URI)
   .then(() => {
-    console.log('Connected to MongoDB');
-    app.listen(PORT, () => {
-      console.log(`Server is running on http://localhost:${PORT}`);
+    console.log('MongoDB bağlantısı kuruldu');
+    const server = app.listen(PORT, () => {
+      console.log(`Sunucu çalışıyor: http://localhost:${PORT}`);
     });
+
+    // docker stop / systemd send SIGTERM: finish open requests, then exit.
+    const shutdown = (signal) => {
+      console.log(`${signal} alındı, sunucu kapatılıyor...`);
+      server.close(() => {
+        mongoose.disconnect().finally(() => process.exit(0));
+      });
+      setTimeout(() => process.exit(1), 10000).unref();
+    };
+    process.on('SIGTERM', () => shutdown('SIGTERM'));
+    process.on('SIGINT', () => shutdown('SIGINT'));
   })
   .catch((err) => {
-    console.error('MongoDB connection error:', err);
+    console.error('MongoDB bağlantı hatası:', err);
     process.exit(1);
   });
-
-module.exports = app;

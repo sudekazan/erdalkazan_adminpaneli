@@ -4,8 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin Panel - Projeler</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link rel="stylesheet" href="/admin/css/admin.css">
 </head>
 <body class="admin-dashboard">
@@ -128,6 +127,13 @@
             }
         });
         
+        // Veriyi HTML'e eklemeden önce kaçışla (XSS önlemi)
+        function escapeHtml(value) {
+            return String(value ?? '').replace(/[&<>"']/g, c => (
+                { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+            ));
+        }
+
         // Function to load projects
         async function loadProjects() {
             const projectsGrid = document.getElementById('projectsGrid');
@@ -151,20 +157,21 @@
                 
                 let html = '';
                 projects.forEach(project => {
-                    const firstImage = project.images && project.images.length > 0 
-                        ? project.images[0].url
-                        : '/images/placeholder.jpg';
-                    
+                    const id = escapeHtml(project._id);
+                    const firstImage = project.images && project.images.length > 0
+                        ? `<img class="project-image" src="${escapeHtml(project.images[0].url)}" alt="" loading="lazy">`
+                        : '<div class="project-image no-image">Görsel yok</div>';
+
                     html += `
                         <div class="project-card">
-                            <div class="project-image" style="background-image: url('${firstImage}')"></div>
+                            ${firstImage}
                             <div class="project-info">
-                                <h3>${project.title}</h3>
+                                <h3>${escapeHtml(project.title)}</h3>
                                 <div class="project-actions">
-                                    <a href="/admin/edit.html?id=${project._id}" class="btn btn-sm btn-edit">
+                                    <a href="/admin/edit.html?id=${encodeURIComponent(project._id)}" class="btn btn-sm btn-edit">
                                         <i class="fas fa-edit"></i> Düzenle
                                     </a>
-                                    <button onclick="openDeleteModal('${project._id}')" class="btn btn-sm btn-delete">
+                                    <button onclick="openDeleteModal('${id}')" class="btn btn-sm btn-delete">
                                         <i class="fas fa-trash"></i> Sil
                                     </button>
                                 </div>

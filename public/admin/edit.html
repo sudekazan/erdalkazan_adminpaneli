@@ -4,8 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Proje Düzenle - Admin Panel</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-    <link rel="stylesheet" href="/style.css"> 
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link rel="stylesheet" href="/admin/css/admin.css">
 </head>
 <body class="admin-edit">
@@ -41,11 +40,11 @@
                 <div class="form-section">
                     <h2>Proje Görselleri</h2>
                     <div class="file-upload-container">
-                        <input type="file" id="imageUpload" multiple accept="image/*" style="display: none;">
+                        <input type="file" id="imageUpload" multiple accept="image/jpeg,image/png,image/webp" style="display: none;">
                         <button type="button" class="btn btn-secondary" onclick="document.getElementById('imageUpload').click()">
                             <i class="fas fa-plus"></i> Yeni Görsel Ekle
                         </button>
-                        <div class="file-upload-info">Maksimum 10MB, JPG, PNG veya GIF</div>
+                        <div class="file-upload-info">JPG, PNG veya WEBP · görsel başına en fazla 10 MB · tek seferde en fazla 10 yeni görsel</div>
                     </div>
                     
                     <div id="imagePreviews" class="image-previews">
@@ -87,74 +86,50 @@
         </div>
     </div>
 
+    <script src="/admin/js/image-picker.js"></script>
     <script>
         // Global variables
         let projectId = null; 
         let existingImages = [];
-        let newFiles = [];
+        // Yeni seçilen (henüz yüklenmemiş) görseller
+        const picker = ImagePicker.create({
+            onError: (message) => window.showError(message),
+            onChange: () => updateImagePreviews()
+        });
         let imageToDelete = null; 
         
         // Check authentication status and load project data
         document.addEventListener('DOMContentLoaded', async () => {
-            try {
-                console.log('🚀 Edit page loading started');
+            // Hata penceresi her durumda kullanılabilsin diye önce kurulur
+            setupModals();
 
-                // Check authentication
-                console.log('🔐 Checking authentication...');
+            try {
                 const authResponse = await fetch('/admin/check-auth', {
                     credentials: 'same-origin'
                 });
-
-                console.log('Auth response status:', authResponse.status);
                 if (!authResponse.ok) {
-                    console.log('❌ Authentication failed, redirecting to login');
                     window.location.href = '/admin/login.html';
                     return;
                 }
 
-                const authData = await authResponse.json();
-                console.log('✅ Authentication successful:', authData);
-
-                // Get project ID from URL
-                const urlParams = new URLSearchParams(window.location.search);
-                const localProjectId = urlParams.get('id');
-
-                if (!localProjectId) {
-                    console.error('❌ No project ID found in URL');
+                projectId = new URLSearchParams(window.location.search).get('id');
+                if (!projectId) {
                     alert('Proje ID bulunamadı. Admin paneline yönlendiriliyorsunuz.');
                     window.location.href = '/admin';
                     return;
                 }
-                
-                projectId = localProjectId;
 
-                console.log('📋 Project ID:', projectId);
-
-                // Load project data
-                console.log('📥 Loading project data...');
                 await loadProject(projectId);
-
-                // Set up form submission
-                console.log('⚙️ Setting up form...');
                 setupForm();
-
-                // Set up modals
-                console.log('🔲 Setting up modals...');
-                setupModals();
-
-                console.log('✅ Edit page setup completed successfully');
-
             } catch (error) {
-                console.error('💥 Critical initialization error:', error);
-                console.error('Error stack:', error.stack);
-                showError('Sayfa yüklenirken kritik bir hata oluştu. Lütfen sayfayı yenileyin.'); 
+                console.error('Düzenleme sayfası yüklenemedi:', error);
+                showError(error.message || 'Sayfa yüklenirken bir hata oluştu. Lütfen sayfayı yenileyin.');
             }
         });
-                
+
         // Load project data
         async function loadProject(id) {
             try {
-                console.log('Fetching project data for ID:', id);
                 const response = await fetch(`/api/projects/${id}`, {
                     credentials: 'same-origin'
                 });
@@ -167,7 +142,6 @@
                 }
                 
                 const project = await response.json();
-                console.log('Project loaded successfully:', project);
                 
                 // Populate form fields
                 document.getElementById('title').value = project.title || '';
@@ -196,19 +170,8 @@
             
             // Handle file selection
             imageUpload.addEventListener('change', (e) => {
-                const files = Array.from(e.target.files);
-                
-                // Check total file size (max 10MB per file, 50MB total)
-                const totalSize = [...newFiles, ...files].reduce((total, file) => total + file.size, 0);
-                if (totalSize > 50 * 1024 * 1024) {
-                    showError('❌ Toplam dosya boyutu 50MB\'ı geçemez');
-                    return;
-                }
-                
-                newFiles = [...newFiles, ...files];
-                updateImagePreviews();
-                
-                // Reset file input to allow selecting the same file again
+                picker.add(e.target.files);
+                // Aynı dosyanın tekrar seçilebilmesi için sıfırla
                 e.target.value = '';
             });
             
@@ -219,7 +182,7 @@
                 // Validate form
                 const title = document.getElementById('title').value.trim();
                 if (!title) {
-                    showError('⚠️ Lütfen bir başlık girin');
+                    showError('Lütfen bir başlık girin');
                     return;
                 }
                 
@@ -241,12 +204,11 @@
                     // Teknolojiler kaldırıldı
                     
                     // Add new files to form data
-                    newFiles.forEach(file => {
+                    picker.files.forEach(file => {
                         formData.append('images', file);
                     });
                     
                     // Update project
-                    console.log('📤 Updating project...');
                     const response = await fetch(`/api/projects/${projectId}`, {
                         method: 'PUT',
                         body: formData,
@@ -254,15 +216,14 @@
                     });
                     
                     if (response.ok) {
-                        console.log('✅ Project updated successfully');
                         window.location.href = '/admin';
                     } else {
                         const error = await response.json();
-                        throw new Error(error.message || '❌ Proje güncellenirken bir hata oluştu');
+                        throw new Error(error.message || 'Proje güncellenirken bir hata oluştu');
                     }
                 } catch (error) {
-                    console.error('❌ Error updating project:', error);
-                    showError('⚠️ ' + (error.message || 'Proje güncellenirken bir hata oluştu. Lütfen tekrar deneyin.'));
+                    console.error('Proje güncellenemedi:', error);
+                    showError(error.message || 'Proje güncellenirken bir hata oluştu. Lütfen tekrar deneyin.');
                 } finally {
                     // Re-enable form and hide loading state
                     submitBtn.disabled = false;
@@ -293,8 +254,8 @@
             const cancelDeleteImage = document.getElementById('cancelDeleteImage');
             const confirmDeleteImage = document.getElementById('confirmDeleteImage');
             
-            window.openDeleteImageModal = function(filename) {
-                imageToDelete = filename; // Cloudinary filename
+            window.openDeleteImageModal = function(imageId) {
+                imageToDelete = imageId;
                 deleteImageModal.style.display = 'flex';
             };
             
@@ -310,13 +271,13 @@
                 }
                 
                 try {
-                    const response = await fetch(`/api/projects/${projectId}/images/${imageToDelete}`, {
+                    const response = await fetch(`/api/projects/${encodeURIComponent(projectId)}/images/${encodeURIComponent(imageToDelete)}`, {
                         method: 'DELETE',
                         credentials: 'same-origin'
                     });
                     
                     if (response.ok) {
-                        existingImages = existingImages.filter(img => img.filename !== imageToDelete); 
+                        existingImages = existingImages.filter(img => img._id !== imageToDelete);
                         updateImagePreviews();
                     } else {
                         const error = await response.json();
@@ -351,68 +312,37 @@
             });
         }
         
-        // Update image previews (Bu kısım da değişmedi, sadece temizlendi)
+        // Veriyi HTML'e eklemeden önce kaçışla (XSS önlemi)
+        function escapeHtml(value) {
+            return String(value ?? '').replace(/[&<>"']/g, c => (
+                { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+            ));
+        }
+
+        // Update image previews: existing (uploaded) images first, then new ones
         function updateImagePreviews() {
             const imagePreviews = document.getElementById('imagePreviews');
-            
-            if (existingImages.length === 0 && newFiles.length === 0) {
+            const newPreviews = picker.previews();
+
+            if (existingImages.length === 0 && newPreviews.length === 0) {
                 imagePreviews.innerHTML = '<div class="no-images">Henüz hiç görsel yüklenmedi</div>';
                 return;
             }
-            
-            let html = '<div class="image-previews-grid">';
-            
-            // Display existing images
-            existingImages.forEach(image => {
-                html += `
-                    <div class="image-preview">
-                        <img src="${image.url}" alt="${image.filename}">
-                        <button type="button" class="remove-image" onclick="openDeleteImageModal('${image.filename}')">
-                            <i class="fas fa-trash"></i>
-                        </button>
-                    </div>
-                `;
-            });
-            
-            html += '</div>';
-            imagePreviews.innerHTML = html;
 
-            // Display new images
-            newFiles.forEach((file, index) => {
-                const reader = new FileReader();
-                reader.onload = (e) => {
-                    const preview = document.createElement('div');
-                    preview.className = 'image-preview';
-                    preview.innerHTML = `
-                        <img src="${e.target.result}" alt="Preview">
-                        <button type="button" class="remove-image" data-index="${index}">
-                            <i class="fas fa-times"></i>
-                        </button>
-                    `;
-                    
-                    const removeBtn = preview.querySelector('.remove-image');
-                    removeBtn.addEventListener('click', (event) => {
-                        event.stopPropagation();
-                        // Dosyayı listeden çıkar
-                        const currentGrid = imagePreviews.querySelector('.image-previews-grid');
-                        const previewElements = Array.from(currentGrid.children);
-                        const clickedIndex = previewElements.indexOf(preview);
-                        
-                        if (clickedIndex !== -1) {
-                            newFiles.splice(clickedIndex - existingImages.length, 1);
-                            updateImagePreviews();
-                        }
-                    });
-                    
-                    const grid = imagePreviews.querySelector('.image-previews-grid');
-                    if (grid) {
-                        grid.appendChild(preview);
-                    }
-                };
-                reader.readAsDataURL(file);
-            });
+            const grid = document.createElement('div');
+            grid.className = 'image-previews-grid';
+            grid.innerHTML = existingImages.map(image => `
+                <div class="image-preview">
+                    <img src="${escapeHtml(image.url)}" alt="Proje görseli">
+                    <button type="button" class="remove-image" aria-label="Görseli sil" onclick="openDeleteImageModal('${escapeHtml(image._id)}')">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            `).join('');
+            grid.append(...newPreviews);
+            imagePreviews.replaceChildren(grid);
         }
-        
+
         // Set up logout button
         document.getElementById('logoutBtn').addEventListener('click', async (e) => {
             e.preventDefault();
