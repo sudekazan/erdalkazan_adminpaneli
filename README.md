@@ -92,8 +92,10 @@ npm install --no-save playwright && npx playwright install chromium
 2. Geçerse Docker imajını derleyip `ghcr.io/sudekazan/erdalkazan` olarak yükler.
 3. Sunucuda `docker compose pull/up` ile servisi günceller.
 
-Gereken GitHub secret'ları: `SERVER_IP`, `SSH_PRIVATE_KEY` ve önerilen `SSH_KNOWN_HOSTS` (`ssh-keyscan -H SUNUCU_IP` çıktısı).
-`SSH_KNOWN_HOSTS` yoksa sunucu anahtarı doğrulanmadan kabul edilir.
+Gereken GitHub secret'ları: `SERVER_IP` ve `SSH_PRIVATE_KEY`.
+Sunucunun kimliği, iş akışındaki `SERVER_HOST_KEY_SHA256` parmak iziyle doğrulanır; sunucu yeniden kurulursa bu değer güncellenmelidir. İstenirse bunun yerine `SSH_KNOWN_HOSTS` secret'ı tanımlanabilir.
+
+Her yayından sonra `.github/scripts/sunucu-durum.sh` sunucuda çalışır ve sitenin sağlığını, eksik ayarları ve ters proxy/`TRUST_PROXY` durumunu özetler. Site sağlıklı başlamazsa yayın kırmızı görünür. Repo herkese açık olduğu için bu özet hiçbir ayar değeri veya adres yazdırmaz.
 
 Docker imajı `/healthz` uç noktasıyla sağlık kontrolü yapar (MongoDB bağlı değilse kapsayıcı "unhealthy" görünür).
 

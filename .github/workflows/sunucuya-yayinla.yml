@@ -47,10 +47,12 @@ jobs:
     env:
       SERVER_IP: ${{ secrets.SERVER_IP }}
       SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-      # Sunucunun SSH anahtarı (ssh-keyscan -H SUNUCU_IP çıktısı). Tanımlıysa
-      # sunucu kimliği buna göre doğrulanır; tanımlı değilse ilk bağlantıda
-      # gelen anahtar doğrulanmadan kabul edilir.
+      # İsteğe bağlı: sunucunun tam known_hosts satırları. Tanımlı değilse
+      # sunucunun ED25519 anahtarı aşağıdaki parmak iziyle doğrulanır.
       SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+      # Sunucunun SSH anahtar parmak izi (gizli değildir). Sunucu yeniden
+      # kurulup anahtarı değişirse burası güncellenmeli.
+      SERVER_HOST_KEY_SHA256: "SHA256:26TB8Yn9LPg7O1b1pP/cPnx0ftW44Say2PDzorBnJL8"
     steps:
       - uses: actions/checkout@v4
 
@@ -77,10 +79,19 @@ jobs:
           if [ -n "$SSH_KNOWN_HOSTS" ]; then
             printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
           else
-            echo "::warning::SSH_KNOWN_HOSTS secret'ı tanımlı değil; sunucu anahtarı doğrulanmadan kabul ediliyor."
-            ssh-keyscan -H "$SERVER_IP" >> ~/.ssh/known_hosts 2>/dev/null
+            ssh-keyscan -t ed25519 "$SERVER_IP" 2>/dev/null > ~/.ssh/sunucu-anahtari
+            fp=$(ssh-keygen -lf ~/.ssh/sunucu-anahtari 2>/dev/null | awk '{print $2}')
+            if [ "$fp" != "$SERVER_HOST_KEY_SHA256" ]; then
+              echo "::error::Sunucunun SSH anahtarı beklenen parmak iziyle eşleşmiyor (gelen: ${fp:-alınamadı}). Sunucu yeniden kurulduysa iş akışındaki SERVER_HOST_KEY_SHA256 değerini güncelleyin."
+              exit 1
+            fi
+            cp ~/.ssh/sunucu-anahtari ~/.ssh/known_hosts
           fi
           printf 'Host srv\n  HostName %s\n  User deploy\n  IdentityFile ~/.ssh/deploy\n  IdentitiesOnly yes\n  StrictHostKeyChecking yes\n' "$SERVER_IP" > ~/.ssh/config
           # Geçici token ile giriş, iş bitince çıkış (süresi dolmuş giriş bilgisi kalmasın)
           printf '%s' "${{ secrets.GITHUB_TOKEN }}" | ssh srv 'docker login ghcr.io -u sudekazan --password-stdin'
           ssh srv 'cd /srv/sunucu && if docker compose config --services | grep -qx erdalkazan; then docker compose pull erdalkazan && docker compose up -d erdalkazan; else echo "erdalkazan servisi sunucuda henüz tanımlı değil, atlandı"; fi; docker logout ghcr.io'
+
+      - name: Sunucuda site durumunu kontrol et
+        if: env.SERVER_IP != ''
+        run: ssh srv 'bash -s' < .github/scripts/sunucu-durum.sh
