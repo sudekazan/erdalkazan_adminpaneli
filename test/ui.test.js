@@ -178,3 +178,76 @@ test('edit page deletes an existing image', { skip }, async () => {
   assert.deepEqual(getStored(p._id).images.map((i) => i.filename), ['erdalkazan-projects/bbb']);
   await page.context().close();
 });
+
+test('login page: the password field lines up with the login button', { skip }, async () => {
+  const page = await newPage();
+  await page.goto(`${srv.base}/admin/login.html`);
+
+  const input = await page.locator('#password').boundingBox();
+  const button = await page.locator('button[type="submit"]').boundingBox();
+  assert.equal(Math.round(input.x + input.width), Math.round(button.x + button.width));
+  await page.context().close();
+});
+
+test('homepage on a phone: the menu can be opened and leads to the sections', { skip }, async () => {
+  const page = await newPage({ viewport: { width: 375, height: 740 } });
+  await page.goto(`${srv.base}/`);
+  const projectsLink = page.getByRole('link', { name: 'Projeler' });
+  assert.equal(await projectsLink.isVisible(), false);
+
+  await page.getByRole('button', { name: /menü/i }).click();
+  await projectsLink.click();
+
+  await page.waitForFunction(() => location.hash === '#projeler');
+  assert.equal(await projectsLink.isVisible(), false, 'menu closes after choosing a section');
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth), 375, 'no sideways scrolling');
+  await page.context().close();
+});
+
+test('homepage: in-page links have targets and icon-only controls have names', { skip }, async () => {
+  await seedProject({ title: 'İki görselli', images: [{ url: 'https://x/1.jpg', filename: 'a' }, { url: 'https://x/2.jpg', filename: 'b' }] });
+  const page = await newPage();
+  await page.goto(`${srv.base}/`);
+  await page.locator('.project-card').waitFor();
+
+  const missingTargets = await page.$$eval('a[href^="#"]', (links) => links
+    .map((a) => a.getAttribute('href'))
+    .filter((href) => href.length > 1 && !document.getElementById(href.slice(1))));
+  assert.deepEqual(missingTargets, []);
+
+  const unnamed = await page.$$eval('a, button', (els) => els
+    .filter((el) => !(el.textContent.trim() || el.getAttribute('aria-label') || el.getAttribute('title')))
+    .map((el) => el.outerHTML.slice(0, 80)));
+  assert.deepEqual(unnamed, []);
+  await page.context().close();
+});
+
+test('homepage requests Cloudinary images in an optimized size and format', { skip }, async () => {
+  await seedProject({
+    title: 'Optimize',
+    images: [
+      { url: 'https://res.cloudinary.com/demo/image/upload/v1712/erdalkazan-projects/abc.jpg', filename: 'erdalkazan-projects/abc' },
+      { url: 'https://example.com/baska.jpg', filename: 'x' },
+    ],
+  });
+  const page = await newPage();
+  await page.goto(`${srv.base}/`);
+  await page.locator('.slider-image').first().waitFor({ state: 'attached' });
+
+  const srcs = await page.$$eval('.slider-image', (imgs) => imgs.map((i) => i.getAttribute('src')));
+  assert.deepEqual(srcs, [
+    'https://res.cloudinary.com/demo/image/upload/f_auto,q_auto,w_1200/v1712/erdalkazan-projects/abc.jpg',
+    'https://example.com/baska.jpg',
+  ]);
+  await page.context().close();
+});
+
+test('homepage: a project without images shows no empty image area', { skip }, async () => {
+  await seedProject({ title: 'Görselsiz', description: 'Sadece metin' });
+  const page = await newPage();
+  await page.goto(`${srv.base}/`);
+  await page.locator('.project-card').waitFor();
+
+  assert.equal(await page.locator('.project-card .project-slider').count(), 0);
+  await page.context().close();
+});

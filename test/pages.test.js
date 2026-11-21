@@ -65,6 +65,22 @@ test('admin pages are served to a logged-in admin', async () => {
   }
 });
 
+test('every local stylesheet, script and image the pages reference exists', async () => {
+  const pages = ['/', '/admin/login.html', '/admin/', '/admin/new.html', '/admin/edit.html'];
+  for (const page of pages) {
+    const html = await (await fetch(srv.base + page, { headers: { cookie } })).text();
+    const refs = [...html.matchAll(/(?:href|src)="([^"#]+)"/g)]
+      .map((m) => m[1])
+      .filter((u) => !/^(https?:|mailto:|tel:|data:|\/\/)/.test(u) && !u.includes('${'));
+    assert.ok(refs.length > 0, `${page} has local references`);
+    for (const ref of refs) {
+      const url = new URL(ref, srv.base + page);
+      const res = await fetch(url, { headers: { cookie } });
+      assert.equal(res.status, 200, `${page} -> ${ref}`);
+    }
+  }
+});
+
 test('the login page and admin stylesheet are reachable without a session', async () => {
   assert.equal((await get('/admin/login.html')).status, 200);
   assert.equal((await get('/admin/css/admin.css')).status, 200);
