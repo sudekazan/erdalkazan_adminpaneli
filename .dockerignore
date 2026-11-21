@@ -3,6 +3,8 @@ node_modules
 .github
 .env
 .env.*
+!.env.example
 uploads
+test
 render.yaml
 README.md

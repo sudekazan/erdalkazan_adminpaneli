@@ -1,21 +1,56 @@
 name: sunucuya-yayinla
-# main'e her gönderimde imajı derler, ghcr.io'ya yükler ve kendi sunucuda servisi günceller.
+# Her pull request'te ve main'e her gönderimde testleri çalıştırır.
+# main'de testler geçerse imajı derler, ghcr.io'ya yükler ve kendi sunucuda servisi günceller.
 on:
   push:
     branches: [main]
     paths-ignore: ['README.md']
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
-concurrency: sunucuya-yayinla
+concurrency: sunucuya-yayinla-${{ github.ref }}
 permissions:
   contents: read
-  packages: write
 
 jobs:
-  yayinla:
+  test:
     runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # Tarayıcı testleri (test/ui.test.js) için; Playwright yoksa o testler atlanır.
+      - name: Playwright ve Chromium kur
+        run: |
+          npm install --no-save playwright@1.63.0
+          npx playwright install --with-deps chromium
+
+      - run: npm test
+
+      - name: Bağımlılık güvenlik taraması
+        run: npm audit --omit=dev --audit-level=high
+
+  yayinla:
+    needs: test
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     env:
       SERVER_IP: ${{ secrets.SERVER_IP }}
+      SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+      # Sunucunun SSH anahtarı (ssh-keyscan -H SUNUCU_IP çıktısı). Tanımlıysa
+      # sunucu kimliği buna göre doğrulanır; tanımlı değilse ilk bağlantıda
+      # gelen anahtar doğrulanmadan kabul edilir.
+      SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
     steps:
       - uses: actions/checkout@v4
 
@@ -37,10 +72,15 @@ jobs:
         run: |
           if [ -z "$SERVER_IP" ]; then echo "SERVER_IP tanımlı değil, sunucu adımı atlandı"; exit 0; fi
           install -m 700 -d ~/.ssh
-          printf '%s\n' "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/deploy
           chmod 600 ~/.ssh/deploy
-          ssh-keyscan -H "$SERVER_IP" >> ~/.ssh/known_hosts 2>/dev/null
-          printf 'Host srv\n  HostName %s\n  User deploy\n  IdentityFile ~/.ssh/deploy\n  IdentitiesOnly yes\n' "$SERVER_IP" > ~/.ssh/config
+          if [ -n "$SSH_KNOWN_HOSTS" ]; then
+            printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          else
+            echo "::warning::SSH_KNOWN_HOSTS secret'ı tanımlı değil; sunucu anahtarı doğrulanmadan kabul ediliyor."
+            ssh-keyscan -H "$SERVER_IP" >> ~/.ssh/known_hosts 2>/dev/null
+          fi
+          printf 'Host srv\n  HostName %s\n  User deploy\n  IdentityFile ~/.ssh/deploy\n  IdentitiesOnly yes\n  StrictHostKeyChecking yes\n' "$SERVER_IP" > ~/.ssh/config
           # Geçici token ile giriş, iş bitince çıkış (süresi dolmuş giriş bilgisi kalmasın)
           printf '%s' "${{ secrets.GITHUB_TOKEN }}" | ssh srv 'docker login ghcr.io -u sudekazan --password-stdin'
           ssh srv 'cd /srv/sunucu && if docker compose config --services | grep -qx erdalkazan; then docker compose pull erdalkazan && docker compose up -d erdalkazan; else echo "erdalkazan servisi sunucuda henüz tanımlı değil, atlandı"; fi; docker logout ghcr.io'
