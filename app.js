@@ -1,14 +1,11 @@
 const express = require('express');
 const path = require('path');
 const cookieParser = require('cookie-parser');
-const cors = require('cors');
-const fs = require('fs');
 
-// Import routes
 const adminRoutes = require('./routes/admin');
 const apiRoutes = require('./routes/api');
+const { verifySession } = require('./middleware/auth');
 
-// Create Express app
 const app = express();
 
 // Behind a reverse proxy (nginx, Caddy, Traefik...) set TRUST_PROXY, e.g. "1"
@@ -22,79 +19,65 @@ function parseTrustProxy(value) {
   return value;
 }
 app.set('trust proxy', parseTrustProxy(process.env.TRUST_PROXY));
+app.disable('x-powered-by');
 
-// Middleware
+// Basic security headers. The panel and the site are only ever used from
+// their own origin, so no CORS headers are sent at all.
+app.use((req, res, next) => {
+  res.set({
+    'X-Content-Type-Options': 'nosniff',
+    'X-Frame-Options': 'DENY',
+    'Referrer-Policy': 'strict-origin-when-cross-origin',
+    'Content-Security-Policy': "frame-ancestors 'none'; object-src 'none'; base-uri 'self'",
+  });
+  next();
+});
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
-app.use(cors({
-  origin: true,
-  credentials: true
-}));
 
-// Serve static files from the public directory
-app.use(express.static(path.join(__dirname, 'public')));
+// Admin HTML pages (everything under /admin except the login page) require a
+// valid session. The path is decoded and normalized the way the static file
+// server resolves it, so "/admin//index.html" or "/admin/%69ndex.html"
+// cannot slip past the check.
+function isProtectedAdminPage(rawPath) {
+  let p;
+  try {
+    p = path.posix.normalize(decodeURIComponent(rawPath)).toLowerCase();
+  } catch {
+    return false; // malformed encoding: the static server rejects it anyway
+  }
+  if (p === '/admin') return true;
+  if (!p.startsWith('/admin/')) return false;
+  if (p === '/admin/login.html') return false;
+  return p.endsWith('/') || p.endsWith('.html');
+}
 
-// Serve main website files from makine boya web directory
-app.use(express.static(path.join(__dirname, 'makine boya web')));
-
-// API Routes
-app.use('/api', apiRoutes);
-
-// Admin Routes
-app.use('/admin', adminRoutes);
-
-// Serve login page
-app.get('/admin/login.html', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public/admin/login.html'));
-});
-
-// Serve admin panel files with authentication check
-app.get('/admin', (req, res) => {
-  // Check if user is authenticated
-  const token = req.cookies.token;
-  if (!token) {
+app.use((req, res, next) => {
+  if ((req.method === 'GET' || req.method === 'HEAD')
+      && isProtectedAdminPage(req.path) && !verifySession(req)) {
     return res.redirect('/admin/login.html');
   }
-  // If authenticated, serve the admin panel
-  res.sendFile(path.join(__dirname, 'public/admin/index.html'));
+  next();
 });
 
-// Serve other admin panel files
-app.get('/admin/:path', (req, res, next) => {
-  const filePath = path.join(__dirname, 'public', req.path);
+// Admin panel files (public/) and the public website (makine boya web/)
+app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname, 'makine boya web')));
 
-  // For HTML files (except login), check authentication
-  if (req.path.endsWith('.html') && !req.path.endsWith('login.html')) {
-    const token = req.cookies.token;
-    if (!token) {
-      return res.redirect('/admin/login.html');
-    }
-  }
+app.use('/api', apiRoutes);
+app.use('/admin', adminRoutes);
 
-  // Serve the file if it exists, otherwise next()
-  fs.access(filePath, fs.constants.F_OK, (err) => {
-    if (err) return next();
-    res.sendFile(filePath);
-  });
-});
-
-// Error handling middleware
+// Error handler: details stay in the server log
 app.use((err, req, res, next) => {
-  console.error('Error:', err.stack);
-  res.status(500).json({
-    success: false,
-    message: 'Something went wrong!',
-    error: process.env.NODE_ENV === 'development' ? err.message : undefined
-  });
+  console.error('Beklenmeyen hata:', err);
+  res.status(err.status || 500).json({ message: 'Bir hata oluştu. Lütfen tekrar deneyin.' });
 });
 
 // 404 handler
 app.use((req, res) => {
-  res.status(404).json({
-    success: false,
-    message: 'Not Found'
-  });
+  res.status(404).json({ message: 'Sayfa bulunamadı' });
 });
 
 module.exports = app;
