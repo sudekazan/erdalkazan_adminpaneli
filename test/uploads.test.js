@@ -93,3 +93,24 @@ test('if Cloudinary rejects an upload, no project is created and the error is re
   assert.doesNotMatch(body.message, /api_key/);
   assert.equal(await projectCount(), 0);
 });
+
+test('a project that fails validation does not leave its uploaded images on Cloudinary', async () => {
+  const form = new FormData();
+  form.append('images', file('a.jpg', 'image/jpeg')); // no title
+  const res = await fetch(`${srv.base}/api/projects`, { method: 'POST', body: form, headers: { cookie } });
+
+  assert.equal(res.status, 400);
+  assert.equal(cloud.uploaded.length, 1);
+  assertNothingLeftOnCloudinary();
+});
+
+test('images uploaded while updating a project that no longer exists are discarded', async () => {
+  const form = new FormData();
+  form.append('title', 'Silinmiş');
+  form.append('images', file('a.jpg', 'image/jpeg'));
+  const res = await fetch(`${srv.base}/api/projects/507f1f77bcf86cd799439011`, { method: 'PUT', body: form, headers: { cookie } });
+
+  assert.equal(res.status, 404);
+  assert.equal(cloud.uploaded.length, 1);
+  assertNothingLeftOnCloudinary();
+});

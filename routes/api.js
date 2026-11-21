@@ -86,6 +86,11 @@ async function removeFromCloudinary(publicIds) {
   }));
 }
 
+// Images uploaded for a request whose save failed would never be referenced.
+function discardUploads(req) {
+  return removeFromCloudinary((req.files || []).map((f) => f.filename));
+}
+
 function uploadedImages(req) {
   return (req.files || []).map((f) => ({ url: f.path, filename: f.filename }));
 }
@@ -121,6 +126,7 @@ router.post('/projects', authenticateToken, isAdmin, handleUpload, async (req, r
     await project.save();
     res.status(201).json(project);
   } catch (err) {
+    await discardUploads(req);
     sendSaveError(res, err, 'Proje kaydedilemedi');
   }
 });
@@ -131,6 +137,7 @@ router.put('/projects/:id', authenticateToken, isAdmin, handleUpload, async (req
     const { title, description } = req.body || {};
     const project = await Project.findById(req.params.id);
     if (!project) {
+      await discardUploads(req);
       return res.status(404).json({ message: 'Proje bulunamadı' });
     }
 
@@ -141,6 +148,7 @@ router.put('/projects/:id', authenticateToken, isAdmin, handleUpload, async (req
     await project.save();
     res.json(project);
   } catch (err) {
+    await discardUploads(req);
     sendSaveError(res, err, 'Proje güncellenemedi');
   }
 });
