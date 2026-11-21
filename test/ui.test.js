@@ -37,6 +37,56 @@ async function newPage({ loggedIn = false, viewport = { width: 1280, height: 800
   return page;
 }
 
+// Each payload sets window.__xss if the page turns data into markup.
+const hostile = {
+  title: '<img src=x onerror="window.__xss=\'title\'">Başlık',
+  description: '<img src=x onerror="window.__xss=\'desc\'">ilk satır\nikinci satır',
+  images: [{
+    url: 'https://res.cloudinary.com/demo/a.jpg" onerror="window.__xss=\'url\'" x="',
+    filename: 'erdalkazan-projects/a" onerror="window.__xss=\'filename\'" x="',
+  }],
+};
+
+test('public homepage shows project text literally without running it', { skip }, async () => {
+  await seedProject(hostile);
+  const page = await newPage();
+  await page.goto(`${srv.base}/`);
+  await page.locator('.project-card h3').waitFor();
+  await page.waitForTimeout(300); // let any injected onerror handlers fire
+
+  assert.equal(await page.evaluate(() => window.__xss), undefined);
+  assert.equal(await page.locator('.project-card h3').textContent(), hostile.title);
+  assert.equal(
+    await page.locator('.project-description').innerText(),
+    '<img src=x onerror="window.__xss=\'desc\'">ilk satır\nikinci satır',
+  );
+  await page.context().close();
+});
+
+test('admin project list shows titles literally without running them', { skip }, async () => {
+  await seedProject(hostile);
+  const page = await newPage({ loggedIn: true });
+  await page.goto(`${srv.base}/admin/`);
+  await page.locator('.project-card h3').waitFor();
+  await page.waitForTimeout(300);
+
+  assert.equal(await page.evaluate(() => window.__xss), undefined);
+  assert.equal(await page.locator('.project-card h3').textContent(), hostile.title);
+  await page.context().close();
+});
+
+test('edit page shows existing images without running injected attributes', { skip }, async () => {
+  const p = await seedProject(hostile);
+  const page = await newPage({ loggedIn: true });
+  await page.goto(`${srv.base}/admin/edit.html?id=${p._id}`);
+  await page.locator('.image-preview').first().waitFor();
+  await page.waitForTimeout(300);
+
+  assert.equal(await page.evaluate(() => window.__xss), undefined);
+  assert.equal(await page.inputValue('#title'), hostile.title);
+  await page.context().close();
+});
+
 test('edit page deletes an existing image', { skip }, async () => {
   const p = await seedProject({
     title: 'Görselli',

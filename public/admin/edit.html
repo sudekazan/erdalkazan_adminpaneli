@@ -351,7 +351,14 @@
             });
         }
         
-        // Update image previews (Bu kısım da değişmedi, sadece temizlendi)
+        // Veriyi HTML'e eklemeden önce kaçışla (XSS önlemi)
+        function escapeHtml(value) {
+            return String(value ?? '').replace(/[&<>"']/g, c => (
+                { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+            ));
+        }
+
+        // Update image previews
         function updateImagePreviews() {
             const imagePreviews = document.getElementById('imagePreviews');
             
@@ -366,8 +373,8 @@
             existingImages.forEach(image => {
                 html += `
                     <div class="image-preview">
-                        <img src="${image.url}" alt="${image.filename}">
-                        <button type="button" class="remove-image" onclick="openDeleteImageModal('${image._id}')">
+                        <img src="${escapeHtml(image.url)}" alt="Proje görseli">
+                        <button type="button" class="remove-image" onclick="openDeleteImageModal('${escapeHtml(image._id)}')">
                             <i class="fas fa-trash"></i>
                         </button>
                     </div>
