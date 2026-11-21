@@ -11,6 +11,18 @@ const apiRoutes = require('./routes/api');
 // Create Express app
 const app = express();
 
+// Behind a reverse proxy (nginx, Caddy, Traefik...) set TRUST_PROXY, e.g. "1"
+// for one proxy hop, so req.ip is the real client address. Leave it unset
+// when the app is reached directly, otherwise X-Forwarded-For can be spoofed.
+function parseTrustProxy(value) {
+  if (value === undefined || value === '') return false;
+  if (/^\d+$/.test(value)) return Number(value);
+  if (value === 'true') return true;
+  if (value === 'false') return false;
+  return value;
+}
+app.set('trust proxy', parseTrustProxy(process.env.TRUST_PROXY));
+
 // Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));

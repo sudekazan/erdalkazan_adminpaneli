@@ -1,40 +1,38 @@
 const jwt = require('jsonwebtoken');
 
-const authenticateToken = (req, res, next) => {
-  // In development, bypass token verification
-  if (process.env.NODE_ENV !== 'production') {
-    console.log('Bypassing authentication in development mode');
-    req.user = { role: 'admin' }; // Set default admin user
-    return next();
-  }
-  
-  // Get token from cookies
-  const token = req.cookies.token;
-  
-  if (!token) {
-    return res.status(401).json({ message: 'Authentication required' });
-  }
-
+// Returns the decoded session for a valid `token` cookie, otherwise null.
+// There is deliberately no development bypass: every environment requires
+// a real login, so a missing or wrong NODE_ENV can never open the panel.
+function verifySession(req) {
+  const token = req.cookies && req.cookies.token;
+  const secret = process.env.JWT_SECRET;
+  if (!token || !secret) return null;
   try {
-    // Verify token
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = decoded;
-    next();
-  } catch (error) {
-    return res.status(403).json({ message: 'Invalid or expired token' });
+    return jwt.verify(token, secret, { algorithms: ['HS256'] });
+  } catch {
+    return null;
   }
+}
+
+const authenticateToken = (req, res, next) => {
+  const user = verifySession(req);
+  if (!user) {
+    return res.status(401).json({ message: 'Oturum açmanız gerekiyor' });
+  }
+  req.user = user;
+  next();
 };
 
 const isAdmin = (req, res, next) => {
-  // This is a simple check - in a real app, you'd have proper user roles
   if (req.user && req.user.role === 'admin') {
     next();
   } else {
-    res.status(403).json({ message: 'Admin access required' });
+    res.status(403).json({ message: 'Bu işlem için yönetici yetkisi gerekiyor' });
   }
 };
 
 module.exports = {
+  verifySession,
   authenticateToken,
   isAdmin
 };

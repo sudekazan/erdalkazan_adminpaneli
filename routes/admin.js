@@ -1,73 +1,73 @@
 const express = require('express');
-const router = express.Router();
+const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
-const path = require('path');
-const { authenticateToken } = require('../middleware/auth');
+const { verifySession } = require('../middleware/auth');
+const { createLoginLimiter } = require('../middleware/loginLimiter');
 
-// routes/admin.js
+const router = express.Router();
+
+const LOGIN_WINDOW_MS = 15 * 60 * 1000;
+const loginLimiter = createLoginLimiter({ maxFailures: 5, windowMs: LOGIN_WINDOW_MS });
+
+// ADMIN_PASSWORD may be a bcrypt hash ($2a$/$2b$/$2y$...) or plain text.
+async function passwordMatches(input, configured) {
+  if (/^\$2[aby]\$\d{2}\$/.test(configured)) {
+    return bcrypt.compare(input, configured);
+  }
+  // Compare fixed-length digests so the check takes the same time
+  // regardless of how many characters match.
+  const a = crypto.createHash('sha256').update(input).digest();
+  const b = crypto.createHash('sha256').update(configured).digest();
+  return crypto.timingSafeEqual(a, b);
+}
+
+function cookieOptions() {
+  return {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'strict',
+    path: '/',
+  };
+}
+
 router.post('/login', async (req, res) => {
-  const { password } = req.body;
   const adminPassword = process.env.ADMIN_PASSWORD;
+  const secret = process.env.JWT_SECRET;
+  if (!adminPassword || !secret) {
+    console.error('Admin girişi kapalı: ADMIN_PASSWORD ve JWT_SECRET ortam değişkenleri tanımlanmalı.');
+    return res.status(503).json({ message: 'Admin girişi sunucuda yapılandırılmamış' });
+  }
 
-  // 1. Şifre kontrolü (Üretim ortamı için bcrypt kullanılması şiddetle tavsiye edilir!)
-  // README'nizde belirtilen bcrypt kullanımı en güvenlisidir.
-  // Ancak mevcut yapıyı bozmamak için basit karşılaştırmayı yapıyorum.
-  // EĞER ŞİFRENİZİ HASH'LEDİYSENİZ, 'bcryptjs' kullanmanız GEREKİR.
-  // const isMatch = await bcrypt.compare(password, adminPassword);
+  const clientKey = req.ip;
+  if (loginLimiter.isBlocked(clientKey)) {
+    res.set('Retry-After', String(loginLimiter.retryAfterSeconds(clientKey)));
+    return res.status(429).json({ message: 'Çok fazla hatalı deneme. Lütfen 15 dakika sonra tekrar deneyin.' });
+  }
 
-  if (!password || password !== adminPassword) {
+  const password = req.body && typeof req.body.password === 'string' ? req.body.password : '';
+  if (!password || !(await passwordMatches(password, adminPassword))) {
+    loginLimiter.recordFailure(clientKey);
     return res.status(401).json({ message: 'Hatalı şifre' });
   }
-  
-  try {
-    // Create token
-    const token = jwt.sign(
-      { role: 'admin' },
-      process.env.JWT_SECRET,
-      { expiresIn: '24h' }
-    );
-    
-    // Set token in HTTP-only cookie
-    res.cookie('token', token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      maxAge: 24 * 60 * 60 * 1000 // 24 hours
-    });
-    
-    res.json({ message: 'Giriş başarılı' });
-  } catch (error) {
-    console.error('Login error:', error);
-    res.status(500).json({ message: 'Giriş sırasında sunucu hatası' });
-  }
+
+  loginLimiter.reset(clientKey);
+  const token = jwt.sign({ role: 'admin' }, secret, { expiresIn: '24h', algorithm: 'HS256' });
+  res.cookie('token', token, { ...cookieOptions(), maxAge: 24 * 60 * 60 * 1000 });
+  res.json({ message: 'Giriş başarılı' });
 });
 
-// Admin logout route
 router.post('/logout', (req, res) => {
-  res.clearCookie('token');
-  res.json({ message: 'Logout successful' });
+  res.clearCookie('token', cookieOptions());
+  res.json({ message: 'Çıkış yapıldı' });
 });
 
-// Check if user is authenticated
 router.get('/check-auth', (req, res) => {
-  // In development mode, always return authenticated
-  if (process.env.NODE_ENV !== 'production') {
-    return res.json({ authenticated: true, user: { role: 'admin' } });
+  const user = verifySession(req);
+  if (!user) {
+    return res.status(401).json({ authenticated: false });
   }
-
-  // Use the authenticateToken middleware for production
-  const token = req.cookies.token;
-  if (!token) {
-    return res.status(401).json({ message: 'Authentication required' });
-  }
-
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    res.json({ authenticated: true, user: decoded });
-  } catch (error) {
-    res.status(403).json({ message: 'Invalid or expired token' });
-  }
+  res.json({ authenticated: true, user: { role: user.role } });
 });
 
 module.exports = router;
