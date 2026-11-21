@@ -10,13 +10,13 @@ after(async () => { await srv.close(); });
 beforeEach(reset);
 
 function withEnv(vars, fn) {
-  return async () => {
+  return async (t) => {
     const saved = {};
     for (const [k, v] of Object.entries(vars)) {
       saved[k] = process.env[k];
       if (v === undefined) delete process.env[k]; else process.env[k] = v;
     }
-    try { await fn(); } finally {
+    try { await fn(t); } finally {
       for (const [k, v] of Object.entries(saved)) {
         if (v === undefined) delete process.env[k]; else process.env[k] = v;
       }
@@ -91,7 +91,8 @@ test('login without a JSON body is a failed login, not a server error', async ()
 });
 
 for (const missing of ['ADMIN_PASSWORD', 'JWT_SECRET']) {
-  test(`login issues no session when ${missing} is not configured`, withEnv({ [missing]: undefined }, async () => {
+  test(`login issues no session when ${missing} is not configured`, withEnv({ [missing]: undefined }, async (t) => {
+    t.mock.method(console, 'error', () => {});
     const res = await fetch(`${srv.base}/admin/login`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password: 'dogru-sifre' }),
     });

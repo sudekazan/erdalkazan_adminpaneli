@@ -3,7 +3,7 @@ const mongoose = require('mongoose');
 const projectSchema = new mongoose.Schema({
   title: {
     type: String,
-    required: [true, 'Title is required'],
+    required: [true, 'Başlık zorunludur'],
     trim: true
   },
   // subtitle alanı kaldırıldı

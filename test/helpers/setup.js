@@ -28,6 +28,14 @@ function hydrate(obj) {
   return obj ? Project.hydrate(clone(obj)) : null;
 }
 
+// Real Mongoose rejects ids that are not ObjectIds with a CastError.
+function castId(id) {
+  if (!mongoose.isValidObjectId(id)) {
+    throw new mongoose.Error.CastError('ObjectId', id, '_id');
+  }
+  return String(id);
+}
+
 function installFakeDb() {
   Project.find = () => ({
     sort: async () =>
@@ -35,14 +43,14 @@ function installFakeDb() {
         .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
         .map(hydrate),
   });
-  Project.findById = async (id) => hydrate(store.get(String(id)));
+  Project.findById = async (id) => hydrate(store.get(castId(id)));
   Project.findByIdAndDelete = async (id) => {
-    const doc = store.get(String(id));
+    const doc = store.get(castId(id));
     store.delete(String(id));
     return hydrate(doc);
   };
   Project.findByIdAndUpdate = async (id, update) => {
-    const doc = store.get(String(id));
+    const doc = store.get(castId(id));
     if (!doc) return null;
     const pull = update && update.$pull && update.$pull.images;
     if (pull) {

@@ -1,21 +1,65 @@
 const express = require('express');
-const router = express.Router();
+const mongoose = require('mongoose');
 const multer = require('multer');
 const Project = require('../models/Project');
 const { authenticateToken, isAdmin } = require('../middleware/auth');
-// Cloudinary'i tek ve doğru şekilde içe aktarma
-const { storage, cloudinary } = require('../middleware/cloudinary'); 
+const { storage, cloudinary } = require('../middleware/cloudinary');
 
-// Configure multer to use Cloudinary storage
+const router = express.Router();
 const upload = multer({ storage });
+
+// Malformed ids can never match a document: answer 404 up front instead of
+// letting Mongoose throw a CastError (which used to surface as a 500).
+router.param('id', (req, res, next, id) => {
+  if (!mongoose.isValidObjectId(id)) {
+    return res.status(404).json({ message: 'Proje bulunamadı' });
+  }
+  next();
+});
+router.param('imageId', (req, res, next, id) => {
+  if (!mongoose.isValidObjectId(id)) {
+    return res.status(404).json({ message: 'Görsel bulunamadı' });
+  }
+  next();
+});
+
+// Log the details on the server; never send them to the client.
+function serverError(res, err, message) {
+  console.error(message, err);
+  res.status(500).json({ message });
+}
+
+function sendSaveError(res, err, message) {
+  if (err instanceof mongoose.Error.ValidationError) {
+    const details = Object.values(err.errors).map((e) => e.message).join(', ');
+    return res.status(400).json({ message: details || message });
+  }
+  serverError(res, err, message);
+}
+
+// Best effort: a failed Cloudinary call only leaves an unused file behind,
+// so it is logged and never blocks the database change.
+async function removeFromCloudinary(publicIds) {
+  await Promise.all(publicIds.filter(Boolean).map(async (publicId) => {
+    try {
+      await cloudinary.uploader.destroy(publicId, { invalidate: true });
+    } catch (err) {
+      console.error(`Cloudinary görseli silinemedi (${publicId}):`, err);
+    }
+  }));
+}
+
+function uploadedImages(req) {
+  return (req.files || []).map((f) => ({ url: f.path, filename: f.filename }));
+}
 
 // Get all projects
 router.get('/projects', async (req, res) => {
   try {
     const projects = await Project.find().sort('-createdAt');
     res.json(projects);
-  } catch (error) {
-    res.status(500).json({ message: 'Error fetching projects', error: error.message });
+  } catch (err) {
+    serverError(res, err, 'Projeler yüklenemedi');
   }
 });
 
@@ -24,91 +68,81 @@ router.get('/projects/:id', async (req, res) => {
   try {
     const project = await Project.findById(req.params.id);
     if (!project) {
-      return res.status(404).json({ message: 'Project not found' });
+      return res.status(404).json({ message: 'Proje bulunamadı' });
     }
     res.json(project);
-  } catch (error) {
-    res.status(500).json({ message: 'Error fetching project', error: error.message });
+  } catch (err) {
+    serverError(res, err, 'Proje yüklenemedi');
   }
 });
 
-// Create a new project (protected route)
+// Create a new project
 router.post('/projects', authenticateToken, isAdmin, upload.array('images', 10), async (req, res) => {
   try {
-    const { title, description } = req.body; 
-
-    const project = new Project({
-      title,
-      description,
-      images: req.files.map(f => ({ url: f.path, filename: f.filename }))
-    });
-
+    const { title, description } = req.body || {};
+    const project = new Project({ title, description, images: uploadedImages(req) });
     await project.save();
     res.status(201).json(project);
-  } catch (error) {
-    console.error('PROJE KAYIT HATASI:', error); 
-    res.status(400).json({ message: 'Error creating project', error: error.message });
+  } catch (err) {
+    sendSaveError(res, err, 'Proje kaydedilemedi');
   }
 });
 
-// Update a project (protected route)
+// Update a project's text and append newly uploaded images
 router.put('/projects/:id', authenticateToken, isAdmin, upload.array('images', 10), async (req, res) => {
   try {
-    const { title, description } = req.body; 
+    const { title, description } = req.body || {};
     const project = await Project.findById(req.params.id);
-
     if (!project) {
-      return res.status(404).json({ message: 'Project not found' });
+      return res.status(404).json({ message: 'Proje bulunamadı' });
     }
 
     project.title = title;
     project.description = description;
-
-    if (req.files && req.files.length > 0) {
-      const newImages = req.files.map(f => ({ url: f.path, filename: f.filename }));
-      project.images.push(...newImages);
-    }
+    project.images.push(...uploadedImages(req));
 
     await project.save();
     res.json(project);
-  } catch (error) {
-    res.status(400).json({ message: 'Error updating project', error: error.message });
+  } catch (err) {
+    sendSaveError(res, err, 'Proje güncellenemedi');
   }
 });
 
-// Delete a project (protected route) - SİLME ROTASI EKLENDİ
+// Delete a project together with its images on Cloudinary
 router.delete('/projects/:id', authenticateToken, isAdmin, async (req, res) => {
   try {
-    const deletedProject = await Project.findByIdAndDelete(req.params.id);
-    if (!deletedProject) {
-      return res.status(404).json({ message: 'Project not found' });
+    const project = await Project.findByIdAndDelete(req.params.id);
+    if (!project) {
+      return res.status(404).json({ message: 'Proje bulunamadı' });
     }
-    res.json({ message: 'Project deleted successfully' });
-  } catch (error) {
-    res.status(500).json({ message: 'Error deleting project', error: error.message });
+    await removeFromCloudinary(project.images.map((img) => img.filename));
+    res.json({ message: 'Proje silindi' });
+  } catch (err) {
+    serverError(res, err, 'Proje silinemedi');
   }
 });
 
-// Delete an image from a project (protected route) - GÖRSEL SİLME ROTASI EKLENDİ
-router.delete('/projects/:projectId/images/:filename', authenticateToken, isAdmin, async (req, res) => {
+// Delete one image of a project. Images are addressed by their own id:
+// Cloudinary public ids contain "/" and cannot be used as a URL segment.
+router.delete('/projects/:id/images/:imageId', authenticateToken, isAdmin, async (req, res) => {
   try {
-    const { projectId, filename } = req.params;
-    // Cloudinary'den görseli sil
-    await cloudinary.uploader.destroy(filename); 
-    // Veritabanından görseli kaldır
-    const project = await Project.findByIdAndUpdate(
-      projectId,
-      { $pull: { images: { filename: filename } } },
-      { new: true }
-    );
-
+    const project = await Project.findById(req.params.id);
     if (!project) {
-      return res.status(404).json({ message: 'Project not found' });
+      return res.status(404).json({ message: 'Proje bulunamadı' });
+    }
+    const image = project.images.id(req.params.imageId);
+    if (!image) {
+      return res.status(404).json({ message: 'Görsel bulunamadı' });
     }
 
+    const publicId = image.filename;
+    project.images.pull(image._id);
+    await project.save();
+    await removeFromCloudinary([publicId]);
+
     res.json(project);
-  } catch (error) {
-    res.status(500).json({ message: 'Error deleting image', error: error.message });
+  } catch (err) {
+    serverError(res, err, 'Görsel silinemedi');
   }
 });
 

@@ -293,8 +293,8 @@
             const cancelDeleteImage = document.getElementById('cancelDeleteImage');
             const confirmDeleteImage = document.getElementById('confirmDeleteImage');
             
-            window.openDeleteImageModal = function(filename) {
-                imageToDelete = filename; // Cloudinary filename
+            window.openDeleteImageModal = function(imageId) {
+                imageToDelete = imageId;
                 deleteImageModal.style.display = 'flex';
             };
             
@@ -310,13 +310,13 @@
                 }
                 
                 try {
-                    const response = await fetch(`/api/projects/${projectId}/images/${imageToDelete}`, {
+                    const response = await fetch(`/api/projects/${encodeURIComponent(projectId)}/images/${encodeURIComponent(imageToDelete)}`, {
                         method: 'DELETE',
                         credentials: 'same-origin'
                     });
                     
                     if (response.ok) {
-                        existingImages = existingImages.filter(img => img.filename !== imageToDelete); 
+                        existingImages = existingImages.filter(img => img._id !== imageToDelete);
                         updateImagePreviews();
                     } else {
                         const error = await response.json();
@@ -367,7 +367,7 @@
                 html += `
                     <div class="image-preview">
                         <img src="${image.url}" alt="${image.filename}">
-                        <button type="button" class="remove-image" onclick="openDeleteImageModal('${image.filename}')">
+                        <button type="button" class="remove-image" onclick="openDeleteImageModal('${image._id}')">
                             <i class="fas fa-trash"></i>
                         </button>
                     </div>
